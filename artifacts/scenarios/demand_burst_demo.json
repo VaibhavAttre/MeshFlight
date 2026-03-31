@@ -1,0 +1,129 @@
+{
+  "metadata": {
+    "scenario_id": "demand-burst-demo",
+    "schema_version": "0.1.0",
+    "title": "Demand Burst Demo",
+    "description": "Client-heavy fixture with multiple traffic classes and a burst event.",
+    "seed": 27,
+    "created_at": "2026-03-30T20:15:00Z",
+    "authoring_version": "phase0"
+  },
+  "map": {
+    "width": 640,
+    "height": 480,
+    "grid_resolution": 20,
+    "unit_scale_meters": 1,
+    "origin": { "x": 0, "y": 0 },
+    "layers": [{ "id": "base", "name": "Base", "visible": true }]
+  },
+  "entities": [
+    {
+      "id": "gw-1",
+      "type": "gateway",
+      "label": "Gateway Central",
+      "position": { "x": 320, "y": 80 },
+      "tags": [],
+      "uplink_capacity_mbps": 300,
+      "comms_range_m": 260
+    },
+    {
+      "id": "dr-1",
+      "type": "drone",
+      "label": "Drone North",
+      "position": { "x": 220, "y": 180 },
+      "tags": [],
+      "battery_capacity_mah": 5400,
+      "max_speed_mps": 18,
+      "comms_range_m": 190,
+      "waypoint_step_m": 35
+    },
+    {
+      "id": "dr-2",
+      "type": "drone",
+      "label": "Drone South",
+      "position": { "x": 420, "y": 210 },
+      "tags": [],
+      "battery_capacity_mah": 5400,
+      "max_speed_mps": 18,
+      "comms_range_m": 190,
+      "waypoint_step_m": 35
+    },
+    {
+      "id": "client-1",
+      "type": "client",
+      "label": "Camera Truck",
+      "position": { "x": 170, "y": 380 },
+      "tags": [],
+      "demand_profile": "video"
+    },
+    {
+      "id": "client-2",
+      "type": "client",
+      "label": "Responder Tablet",
+      "position": { "x": 460, "y": 360 },
+      "tags": [],
+      "demand_profile": "command"
+    }
+  ],
+  "obstacles": [
+    {
+      "id": "nfz-1",
+      "type": "no_fly_zone",
+      "label": "No Fly Plaza",
+      "attenuation_db": 0,
+      "blocks_flight": true,
+      "shape": "rect",
+      "position": { "x": 280, "y": 220 },
+      "size": { "width": 90, "height": 90 }
+    }
+  ],
+  "demand_zones": [
+    {
+      "id": "burst-zone",
+      "label": "Burst Zone",
+      "center": { "x": 450, "y": 360 },
+      "radius_m": 70,
+      "priority": 10
+    }
+  ],
+  "traffic_classes": [
+    {
+      "id": "video-stream",
+      "flow_class": "video",
+      "source_entity_ids": ["client-1"],
+      "destination_entity_ids": ["gw-1"],
+      "rate_kbps": 2200,
+      "sla_latency_ms": 180
+    },
+    {
+      "id": "command-control",
+      "flow_class": "command",
+      "source_entity_ids": ["client-2"],
+      "destination_entity_ids": ["gw-1"],
+      "rate_kbps": 150,
+      "sla_latency_ms": 60
+    }
+  ],
+  "scheduled_traffic": [
+    {
+      "id": "sched-video",
+      "traffic_class_id": "video-stream",
+      "time_window": { "start_time_s": 0, "end_time_s": 240 }
+    },
+    {
+      "id": "sched-command",
+      "traffic_class_id": "command-control",
+      "time_window": { "start_time_s": 0, "end_time_s": 240 }
+    }
+  ],
+  "chaos_events": [
+    {
+      "id": "burst-client-2",
+      "event_type": "demand_burst",
+      "target_entity_id": "client-2",
+      "trigger_time_s": 90,
+      "duration_s": 60,
+      "intensity": 2
+    }
+  ]
+}

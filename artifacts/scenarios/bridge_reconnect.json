@@ -1,0 +1,119 @@
+{
+  "metadata": {
+    "scenario_id": "bridge-reconnect",
+    "schema_version": "0.1.0",
+    "title": "Bridge Reconnect",
+    "description": "Small reconnect-first fixture with one scheduled drone failure.",
+    "seed": 7,
+    "created_at": "2026-03-30T20:00:00Z",
+    "authoring_version": "phase0"
+  },
+  "map": {
+    "width": 500,
+    "height": 300,
+    "grid_resolution": 10,
+    "unit_scale_meters": 1,
+    "origin": { "x": 0, "y": 0 },
+    "layers": [{ "id": "base", "name": "Base", "visible": true }]
+  },
+  "entities": [
+    {
+      "id": "gw-1",
+      "type": "gateway",
+      "label": "Gateway 1",
+      "position": { "x": 40, "y": 150 },
+      "tags": ["gateway"],
+      "uplink_capacity_mbps": 200,
+      "comms_range_m": 220
+    },
+    {
+      "id": "dr-1",
+      "type": "drone",
+      "label": "Drone 1",
+      "position": { "x": 140, "y": 120 },
+      "tags": ["relay"],
+      "battery_capacity_mah": 5200,
+      "max_speed_mps": 16,
+      "comms_range_m": 170,
+      "waypoint_step_m": 25
+    },
+    {
+      "id": "dr-2",
+      "type": "drone",
+      "label": "Drone 2",
+      "position": { "x": 250, "y": 150 },
+      "tags": ["relay"],
+      "battery_capacity_mah": 5200,
+      "max_speed_mps": 16,
+      "comms_range_m": 170,
+      "waypoint_step_m": 25
+    },
+    {
+      "id": "dr-3",
+      "type": "drone",
+      "label": "Drone 3",
+      "position": { "x": 360, "y": 150 },
+      "tags": ["relay"],
+      "battery_capacity_mah": 5200,
+      "max_speed_mps": 16,
+      "comms_range_m": 170,
+      "waypoint_step_m": 25
+    },
+    {
+      "id": "client-1",
+      "type": "client",
+      "label": "Client 1",
+      "position": { "x": 455, "y": 150 },
+      "tags": ["edge"],
+      "demand_profile": "telemetry"
+    }
+  ],
+  "obstacles": [
+    {
+      "id": "wall-1",
+      "type": "wall",
+      "label": "Mid Wall",
+      "attenuation_db": 8,
+      "blocks_flight": false,
+      "shape": "segment",
+      "start": { "x": 215, "y": 70 },
+      "end": { "x": 215, "y": 230 }
+    }
+  ],
+  "demand_zones": [
+    {
+      "id": "dz-east",
+      "label": "East Demand",
+      "center": { "x": 460, "y": 150 },
+      "radius_m": 50,
+      "priority": 9
+    }
+  ],
+  "traffic_classes": [
+    {
+      "id": "flow-telemetry",
+      "flow_class": "telemetry",
+      "source_entity_ids": ["client-1"],
+      "destination_entity_ids": ["gw-1"],
+      "rate_kbps": 300,
+      "sla_latency_ms": 90
+    }
+  ],
+  "scheduled_traffic": [
+    {
+      "id": "sched-1",
+      "traffic_class_id": "flow-telemetry",
+      "time_window": { "start_time_s": 0, "end_time_s": 180 }
+    }
+  ],
+  "chaos_events": [
+    {
+      "id": "fail-dr-2",
+      "event_type": "node_failure",
+      "target_entity_id": "dr-2",
+      "trigger_time_s": 60,
+      "duration_s": 30,
+      "intensity": 1
+    }
+  ]
+}

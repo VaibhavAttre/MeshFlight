@@ -1,0 +1,169 @@
+{
+  "metadata": {
+    "scenario_id": "urban-obstacle-course",
+    "schema_version": "0.1.0",
+    "title": "Urban Obstacle Course",
+    "description": "Obstacle-heavy fixture for schema and compiler validation.",
+    "seed": 19,
+    "created_at": "2026-03-30T20:10:00Z",
+    "authoring_version": "phase0"
+  },
+  "map": {
+    "width": 800,
+    "height": 600,
+    "grid_resolution": 20,
+    "unit_scale_meters": 1,
+    "origin": { "x": 0, "y": 0 },
+    "layers": [
+      { "id": "base", "name": "Base", "visible": true },
+      { "id": "obstacles", "name": "Obstacles", "visible": true }
+    ]
+  },
+  "entities": [
+    {
+      "id": "gw-1",
+      "type": "gateway",
+      "label": "Gateway North",
+      "position": { "x": 110, "y": 90 },
+      "tags": [],
+      "uplink_capacity_mbps": 250,
+      "comms_range_m": 240
+    },
+    {
+      "id": "dr-1",
+      "type": "drone",
+      "label": "Drone Alpha",
+      "position": { "x": 220, "y": 150 },
+      "tags": [],
+      "battery_capacity_mah": 5000,
+      "max_speed_mps": 15,
+      "comms_range_m": 180,
+      "waypoint_step_m": 30
+    },
+    {
+      "id": "dr-2",
+      "type": "drone",
+      "label": "Drone Beta",
+      "position": { "x": 400, "y": 250 },
+      "tags": [],
+      "battery_capacity_mah": 5000,
+      "max_speed_mps": 15,
+      "comms_range_m": 180,
+      "waypoint_step_m": 30
+    },
+    {
+      "id": "dr-3",
+      "type": "drone",
+      "label": "Drone Gamma",
+      "position": { "x": 590, "y": 370 },
+      "tags": [],
+      "battery_capacity_mah": 5000,
+      "max_speed_mps": 15,
+      "comms_range_m": 180,
+      "waypoint_step_m": 30
+    },
+    {
+      "id": "client-1",
+      "type": "client",
+      "label": "Sensor West",
+      "position": { "x": 130, "y": 490 },
+      "tags": [],
+      "demand_profile": "video"
+    },
+    {
+      "id": "client-2",
+      "type": "client",
+      "label": "Sensor East",
+      "position": { "x": 700, "y": 440 },
+      "tags": [],
+      "demand_profile": "command"
+    },
+    {
+      "id": "jammer-1",
+      "type": "interference_emitter",
+      "label": "Jammer",
+      "position": { "x": 520, "y": 220 },
+      "tags": [],
+      "radius_m": 110,
+      "intensity": 0.8
+    }
+  ],
+  "obstacles": [
+    {
+      "id": "bldg-1",
+      "type": "building",
+      "label": "Warehouse",
+      "attenuation_db": 15,
+      "blocks_flight": true,
+      "shape": "rect",
+      "position": { "x": 260, "y": 180 },
+      "size": { "width": 120, "height": 140 }
+    },
+    {
+      "id": "veg-1",
+      "type": "vegetation",
+      "label": "Tree Cluster",
+      "attenuation_db": 4,
+      "blocks_flight": false,
+      "shape": "circle",
+      "center": { "x": 610, "y": 150 },
+      "radius": 75
+    }
+  ],
+  "demand_zones": [
+    {
+      "id": "dz-west",
+      "label": "West Demand",
+      "center": { "x": 130, "y": 500 },
+      "radius_m": 55,
+      "priority": 7
+    },
+    {
+      "id": "dz-east",
+      "label": "East Demand",
+      "center": { "x": 700, "y": 440 },
+      "radius_m": 60,
+      "priority": 8
+    }
+  ],
+  "traffic_classes": [
+    {
+      "id": "video-west",
+      "flow_class": "video",
+      "source_entity_ids": ["client-1"],
+      "destination_entity_ids": ["gw-1"],
+      "rate_kbps": 1800,
+      "sla_latency_ms": 160
+    },
+    {
+      "id": "command-east",
+      "flow_class": "command",
+      "source_entity_ids": ["client-2"],
+      "destination_entity_ids": ["gw-1"],
+      "rate_kbps": 120,
+      "sla_latency_ms": 70
+    }
+  ],
+  "scheduled_traffic": [
+    {
+      "id": "sched-west",
+      "traffic_class_id": "video-west",
+      "time_window": { "start_time_s": 10, "end_time_s": 200 }
+    },
+    {
+      "id": "sched-east",
+      "traffic_class_id": "command-east",
+      "time_window": { "start_time_s": 0, "end_time_s": 200 }
+    }
+  ],
+  "chaos_events": [
+    {
+      "id": "spike-jammer",
+      "event_type": "interference_spike",
+      "target_entity_id": "jammer-1",
+      "trigger_time_s": 75,
+      "duration_s": 45,
+      "intensity": 1.2
+    }
+  ]
+}

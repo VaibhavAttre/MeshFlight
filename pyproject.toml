@@ -4,7 +4,7 @@ target-version = "py311"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["."]
+pythonpath = [".", "packages/schema/src", "packages/runtime_contracts/src"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]

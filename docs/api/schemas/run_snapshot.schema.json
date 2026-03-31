@@ -1,0 +1,162 @@
+{
+  "$defs": {
+    "NodeStatus": {
+      "enum": [
+        "active",
+        "degraded",
+        "disconnected",
+        "failed"
+      ],
+      "title": "NodeStatus",
+      "type": "string"
+    },
+    "Point2D": {
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "minimum": 0,
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "minimum": 0,
+          "title": "Y",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "title": "Point2D",
+      "type": "object"
+    },
+    "SnapshotLinkState": {
+      "additionalProperties": false,
+      "properties": {
+        "src": {
+          "minLength": 1,
+          "title": "Src",
+          "type": "string"
+        },
+        "dst": {
+          "minLength": 1,
+          "title": "Dst",
+          "type": "string"
+        },
+        "connected": {
+          "title": "Connected",
+          "type": "boolean"
+        },
+        "cost": {
+          "minimum": 0,
+          "title": "Cost",
+          "type": "number"
+        },
+        "capacity_mbps": {
+          "minimum": 0,
+          "title": "Capacity Mbps",
+          "type": "number"
+        }
+      },
+      "required": [
+        "src",
+        "dst",
+        "connected",
+        "cost",
+        "capacity_mbps"
+      ],
+      "title": "SnapshotLinkState",
+      "type": "object"
+    },
+    "SnapshotNodeState": {
+      "additionalProperties": false,
+      "properties": {
+        "node_id": {
+          "minLength": 1,
+          "title": "Node Id",
+          "type": "string"
+        },
+        "position": {
+          "$ref": "#/$defs/Point2D"
+        },
+        "battery_pct": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Battery Pct",
+          "type": "number"
+        },
+        "queue_depth": {
+          "minimum": 0,
+          "title": "Queue Depth",
+          "type": "integer"
+        },
+        "status": {
+          "$ref": "#/$defs/NodeStatus"
+        }
+      },
+      "required": [
+        "node_id",
+        "position",
+        "battery_pct",
+        "queue_depth",
+        "status"
+      ],
+      "title": "SnapshotNodeState",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "snapshot_id": {
+      "minLength": 1,
+      "title": "Snapshot Id",
+      "type": "string"
+    },
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "time_s": {
+      "minimum": 0,
+      "title": "Time S",
+      "type": "number"
+    },
+    "nodes": {
+      "items": {
+        "$ref": "#/$defs/SnapshotNodeState"
+      },
+      "title": "Nodes",
+      "type": "array"
+    },
+    "links": {
+      "items": {
+        "$ref": "#/$defs/SnapshotLinkState"
+      },
+      "title": "Links",
+      "type": "array"
+    },
+    "summary_metrics": {
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "number"
+          },
+          {
+            "type": "integer"
+          }
+        ]
+      },
+      "title": "Summary Metrics",
+      "type": "object"
+    }
+  },
+  "required": [
+    "snapshot_id",
+    "run_id",
+    "time_s"
+  ],
+  "title": "RunSnapshot",
+  "type": "object"
+}

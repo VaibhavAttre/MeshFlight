@@ -1,0 +1,816 @@
+{
+  "$defs": {
+    "ChaosEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "event_type": {
+          "$ref": "#/$defs/EventType"
+        },
+        "target_entity_id": {
+          "minLength": 1,
+          "title": "Target Entity Id",
+          "type": "string"
+        },
+        "trigger_time_s": {
+          "minimum": 0,
+          "title": "Trigger Time S",
+          "type": "number"
+        },
+        "duration_s": {
+          "exclusiveMinimum": 0,
+          "title": "Duration S",
+          "type": "number"
+        },
+        "intensity": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Intensity"
+        }
+      },
+      "required": [
+        "id",
+        "event_type",
+        "target_entity_id",
+        "trigger_time_s",
+        "duration_s"
+      ],
+      "title": "ChaosEvent",
+      "type": "object"
+    },
+    "CircleObstacle": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/ObstacleType"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "attenuation_db": {
+          "minimum": 0,
+          "title": "Attenuation Db",
+          "type": "number"
+        },
+        "blocks_flight": {
+          "default": false,
+          "title": "Blocks Flight",
+          "type": "boolean"
+        },
+        "shape": {
+          "const": "circle",
+          "default": "circle",
+          "title": "Shape",
+          "type": "string"
+        },
+        "center": {
+          "$ref": "#/$defs/Point2D"
+        },
+        "radius": {
+          "exclusiveMinimum": 0,
+          "title": "Radius",
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "label",
+        "attenuation_db",
+        "center",
+        "radius"
+      ],
+      "title": "CircleObstacle",
+      "type": "object"
+    },
+    "ClientEntity": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "const": "client",
+          "default": "client",
+          "title": "Type",
+          "type": "string"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "position": {
+          "$ref": "#/$defs/Point2D"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "demand_profile": {
+          "minLength": 1,
+          "title": "Demand Profile",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "position",
+        "demand_profile"
+      ],
+      "title": "ClientEntity",
+      "type": "object"
+    },
+    "DemandZone": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "center": {
+          "$ref": "#/$defs/Point2D"
+        },
+        "radius_m": {
+          "exclusiveMinimum": 0,
+          "title": "Radius M",
+          "type": "number"
+        },
+        "priority": {
+          "maximum": 10,
+          "minimum": 1,
+          "title": "Priority",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "center",
+        "radius_m",
+        "priority"
+      ],
+      "title": "DemandZone",
+      "type": "object"
+    },
+    "DroneEntity": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "const": "drone",
+          "default": "drone",
+          "title": "Type",
+          "type": "string"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "position": {
+          "$ref": "#/$defs/Point2D"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "battery_capacity_mah": {
+          "exclusiveMinimum": 0,
+          "title": "Battery Capacity Mah",
+          "type": "number"
+        },
+        "max_speed_mps": {
+          "exclusiveMinimum": 0,
+          "title": "Max Speed Mps",
+          "type": "number"
+        },
+        "comms_range_m": {
+          "exclusiveMinimum": 0,
+          "title": "Comms Range M",
+          "type": "number"
+        },
+        "waypoint_step_m": {
+          "exclusiveMinimum": 0,
+          "title": "Waypoint Step M",
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "position",
+        "battery_capacity_mah",
+        "max_speed_mps",
+        "comms_range_m",
+        "waypoint_step_m"
+      ],
+      "title": "DroneEntity",
+      "type": "object"
+    },
+    "EventType": {
+      "enum": [
+        "node_failure",
+        "obstacle_appearance",
+        "interference_spike",
+        "demand_burst"
+      ],
+      "title": "EventType",
+      "type": "string"
+    },
+    "FlowClass": {
+      "enum": [
+        "telemetry",
+        "video",
+        "command",
+        "background"
+      ],
+      "title": "FlowClass",
+      "type": "string"
+    },
+    "GatewayEntity": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "const": "gateway",
+          "default": "gateway",
+          "title": "Type",
+          "type": "string"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "position": {
+          "$ref": "#/$defs/Point2D"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "uplink_capacity_mbps": {
+          "exclusiveMinimum": 0,
+          "title": "Uplink Capacity Mbps",
+          "type": "number"
+        },
+        "comms_range_m": {
+          "exclusiveMinimum": 0,
+          "title": "Comms Range M",
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "position",
+        "uplink_capacity_mbps",
+        "comms_range_m"
+      ],
+      "title": "GatewayEntity",
+      "type": "object"
+    },
+    "InterferenceEmitterEntity": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "const": "interference_emitter",
+          "default": "interference_emitter",
+          "title": "Type",
+          "type": "string"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "position": {
+          "$ref": "#/$defs/Point2D"
+        },
+        "tags": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Tags",
+          "type": "array"
+        },
+        "radius_m": {
+          "exclusiveMinimum": 0,
+          "title": "Radius M",
+          "type": "number"
+        },
+        "intensity": {
+          "minimum": 0,
+          "title": "Intensity",
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "position",
+        "radius_m",
+        "intensity"
+      ],
+      "title": "InterferenceEmitterEntity",
+      "type": "object"
+    },
+    "MapConfig": {
+      "additionalProperties": false,
+      "properties": {
+        "width": {
+          "exclusiveMinimum": 0,
+          "title": "Width",
+          "type": "number"
+        },
+        "height": {
+          "exclusiveMinimum": 0,
+          "title": "Height",
+          "type": "number"
+        },
+        "grid_resolution": {
+          "exclusiveMinimum": 0,
+          "title": "Grid Resolution",
+          "type": "number"
+        },
+        "unit_scale_meters": {
+          "default": 1.0,
+          "exclusiveMinimum": 0,
+          "title": "Unit Scale Meters",
+          "type": "number"
+        },
+        "origin": {
+          "$ref": "#/$defs/Point2D"
+        },
+        "layers": {
+          "items": {
+            "$ref": "#/$defs/MapLayer"
+          },
+          "title": "Layers",
+          "type": "array"
+        }
+      },
+      "required": [
+        "width",
+        "height",
+        "grid_resolution",
+        "origin"
+      ],
+      "title": "MapConfig",
+      "type": "object"
+    },
+    "MapLayer": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "visible": {
+          "default": true,
+          "title": "Visible",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "title": "MapLayer",
+      "type": "object"
+    },
+    "ObstacleType": {
+      "enum": [
+        "building",
+        "wall",
+        "vegetation",
+        "no_fly_zone"
+      ],
+      "title": "ObstacleType",
+      "type": "string"
+    },
+    "Point2D": {
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "minimum": 0,
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "minimum": 0,
+          "title": "Y",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "title": "Point2D",
+      "type": "object"
+    },
+    "RectObstacle": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/ObstacleType"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "attenuation_db": {
+          "minimum": 0,
+          "title": "Attenuation Db",
+          "type": "number"
+        },
+        "blocks_flight": {
+          "default": false,
+          "title": "Blocks Flight",
+          "type": "boolean"
+        },
+        "shape": {
+          "const": "rect",
+          "default": "rect",
+          "title": "Shape",
+          "type": "string"
+        },
+        "position": {
+          "$ref": "#/$defs/Point2D"
+        },
+        "size": {
+          "$ref": "#/$defs/Size2D"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "label",
+        "attenuation_db",
+        "position",
+        "size"
+      ],
+      "title": "RectObstacle",
+      "type": "object"
+    },
+    "ScenarioMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "scenario_id": {
+          "minLength": 3,
+          "title": "Scenario Id",
+          "type": "string"
+        },
+        "schema_version": {
+          "default": "0.1.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 3,
+          "title": "Title",
+          "type": "string"
+        },
+        "description": {
+          "default": "",
+          "title": "Description",
+          "type": "string"
+        },
+        "seed": {
+          "minimum": 0,
+          "title": "Seed",
+          "type": "integer"
+        },
+        "created_at": {
+          "minLength": 1,
+          "title": "Created At",
+          "type": "string"
+        },
+        "authoring_version": {
+          "minLength": 1,
+          "title": "Authoring Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "scenario_id",
+        "title",
+        "seed",
+        "created_at",
+        "authoring_version"
+      ],
+      "title": "ScenarioMetadata",
+      "type": "object"
+    },
+    "ScheduledTrafficEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "traffic_class_id": {
+          "minLength": 1,
+          "title": "Traffic Class Id",
+          "type": "string"
+        },
+        "time_window": {
+          "$ref": "#/$defs/TimeWindow"
+        }
+      },
+      "required": [
+        "id",
+        "traffic_class_id",
+        "time_window"
+      ],
+      "title": "ScheduledTrafficEvent",
+      "type": "object"
+    },
+    "SegmentObstacle": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "$ref": "#/$defs/ObstacleType"
+        },
+        "label": {
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "attenuation_db": {
+          "minimum": 0,
+          "title": "Attenuation Db",
+          "type": "number"
+        },
+        "blocks_flight": {
+          "default": false,
+          "title": "Blocks Flight",
+          "type": "boolean"
+        },
+        "shape": {
+          "const": "segment",
+          "default": "segment",
+          "title": "Shape",
+          "type": "string"
+        },
+        "start": {
+          "$ref": "#/$defs/Point2D"
+        },
+        "end": {
+          "$ref": "#/$defs/Point2D"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "label",
+        "attenuation_db",
+        "start",
+        "end"
+      ],
+      "title": "SegmentObstacle",
+      "type": "object"
+    },
+    "Size2D": {
+      "additionalProperties": false,
+      "properties": {
+        "width": {
+          "exclusiveMinimum": 0,
+          "title": "Width",
+          "type": "number"
+        },
+        "height": {
+          "exclusiveMinimum": 0,
+          "title": "Height",
+          "type": "number"
+        }
+      },
+      "required": [
+        "width",
+        "height"
+      ],
+      "title": "Size2D",
+      "type": "object"
+    },
+    "TimeWindow": {
+      "additionalProperties": false,
+      "properties": {
+        "start_time_s": {
+          "minimum": 0,
+          "title": "Start Time S",
+          "type": "number"
+        },
+        "end_time_s": {
+          "minimum": 0,
+          "title": "End Time S",
+          "type": "number"
+        }
+      },
+      "required": [
+        "start_time_s",
+        "end_time_s"
+      ],
+      "title": "TimeWindow",
+      "type": "object"
+    },
+    "TrafficClass": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "flow_class": {
+          "$ref": "#/$defs/FlowClass"
+        },
+        "source_entity_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Source Entity Ids",
+          "type": "array"
+        },
+        "destination_entity_ids": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Destination Entity Ids",
+          "type": "array"
+        },
+        "rate_kbps": {
+          "exclusiveMinimum": 0,
+          "title": "Rate Kbps",
+          "type": "integer"
+        },
+        "sla_latency_ms": {
+          "exclusiveMinimum": 0,
+          "title": "Sla Latency Ms",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "flow_class",
+        "source_entity_ids",
+        "destination_entity_ids",
+        "rate_kbps",
+        "sla_latency_ms"
+      ],
+      "title": "TrafficClass",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "metadata": {
+      "$ref": "#/$defs/ScenarioMetadata"
+    },
+    "map": {
+      "$ref": "#/$defs/MapConfig"
+    },
+    "entities": {
+      "items": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/DroneEntity"
+          },
+          {
+            "$ref": "#/$defs/GatewayEntity"
+          },
+          {
+            "$ref": "#/$defs/ClientEntity"
+          },
+          {
+            "$ref": "#/$defs/InterferenceEmitterEntity"
+          }
+        ]
+      },
+      "title": "Entities",
+      "type": "array"
+    },
+    "obstacles": {
+      "items": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/RectObstacle"
+          },
+          {
+            "$ref": "#/$defs/SegmentObstacle"
+          },
+          {
+            "$ref": "#/$defs/CircleObstacle"
+          }
+        ]
+      },
+      "title": "Obstacles",
+      "type": "array"
+    },
+    "demand_zones": {
+      "items": {
+        "$ref": "#/$defs/DemandZone"
+      },
+      "title": "Demand Zones",
+      "type": "array"
+    },
+    "traffic_classes": {
+      "items": {
+        "$ref": "#/$defs/TrafficClass"
+      },
+      "title": "Traffic Classes",
+      "type": "array"
+    },
+    "scheduled_traffic": {
+      "items": {
+        "$ref": "#/$defs/ScheduledTrafficEvent"
+      },
+      "title": "Scheduled Traffic",
+      "type": "array"
+    },
+    "chaos_events": {
+      "items": {
+        "$ref": "#/$defs/ChaosEvent"
+      },
+      "title": "Chaos Events",
+      "type": "array"
+    }
+  },
+  "required": [
+    "metadata",
+    "map"
+  ],
+  "title": "ScenarioSource",
+  "type": "object"
+}

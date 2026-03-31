@@ -1,0 +1,355 @@
+{
+  "$defs": {
+    "CandidateGraphEdge": {
+      "additionalProperties": false,
+      "properties": {
+        "src": {
+          "minLength": 1,
+          "title": "Src",
+          "type": "string"
+        },
+        "dst": {
+          "minLength": 1,
+          "title": "Dst",
+          "type": "string"
+        },
+        "distance_m": {
+          "minimum": 0,
+          "title": "Distance M",
+          "type": "number"
+        },
+        "estimated_penalty": {
+          "minimum": 0,
+          "title": "Estimated Penalty",
+          "type": "number"
+        }
+      },
+      "required": [
+        "src",
+        "dst",
+        "distance_m",
+        "estimated_penalty"
+      ],
+      "title": "CandidateGraphEdge",
+      "type": "object"
+    },
+    "CompilationMetadata": {
+      "additionalProperties": false,
+      "properties": {
+        "source_scenario_id": {
+          "minLength": 1,
+          "title": "Source Scenario Id",
+          "type": "string"
+        },
+        "source_hash": {
+          "minLength": 1,
+          "title": "Source Hash",
+          "type": "string"
+        },
+        "compiler_version": {
+          "minLength": 1,
+          "title": "Compiler Version",
+          "type": "string"
+        },
+        "config_hash": {
+          "minLength": 1,
+          "title": "Config Hash",
+          "type": "string"
+        },
+        "seed": {
+          "minimum": 0,
+          "title": "Seed",
+          "type": "integer"
+        },
+        "generated_at": {
+          "minLength": 1,
+          "title": "Generated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "source_scenario_id",
+        "source_hash",
+        "compiler_version",
+        "config_hash",
+        "seed",
+        "generated_at"
+      ],
+      "title": "CompilationMetadata",
+      "type": "object"
+    },
+    "MobilityConstraint": {
+      "additionalProperties": false,
+      "properties": {
+        "drone_id": {
+          "minLength": 1,
+          "title": "Drone Id",
+          "type": "string"
+        },
+        "max_speed_mps": {
+          "exclusiveMinimum": 0,
+          "title": "Max Speed Mps",
+          "type": "number"
+        },
+        "movement_bounds": {
+          "$ref": "#/$defs/Size2D"
+        }
+      },
+      "required": [
+        "drone_id",
+        "max_speed_mps",
+        "movement_bounds"
+      ],
+      "title": "MobilityConstraint",
+      "type": "object"
+    },
+    "NormalizedEntity": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "type": {
+          "minLength": 1,
+          "title": "Type",
+          "type": "string"
+        },
+        "x": {
+          "minimum": 0,
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "minimum": 0,
+          "title": "Y",
+          "type": "number"
+        },
+        "properties": {
+          "type": "object",
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "title": "Properties"
+        }
+      },
+      "required": [
+        "id",
+        "type",
+        "x",
+        "y"
+      ],
+      "title": "NormalizedEntity",
+      "type": "object"
+    },
+    "ObstacleIndexEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "obstacle_id": {
+          "minLength": 1,
+          "title": "Obstacle Id",
+          "type": "string"
+        },
+        "cell_keys": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Cell Keys",
+          "type": "array"
+        },
+        "los_penalty": {
+          "minimum": 0,
+          "title": "Los Penalty",
+          "type": "number"
+        }
+      },
+      "required": [
+        "obstacle_id",
+        "los_penalty"
+      ],
+      "title": "ObstacleIndexEntry",
+      "type": "object"
+    },
+    "Point2D": {
+      "additionalProperties": false,
+      "properties": {
+        "x": {
+          "minimum": 0,
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "minimum": 0,
+          "title": "Y",
+          "type": "number"
+        }
+      },
+      "required": [
+        "x",
+        "y"
+      ],
+      "title": "Point2D",
+      "type": "object"
+    },
+    "RuntimeScheduleEntry": {
+      "additionalProperties": false,
+      "properties": {
+        "time_s": {
+          "minimum": 0,
+          "title": "Time S",
+          "type": "number"
+        },
+        "action": {
+          "minLength": 1,
+          "title": "Action",
+          "type": "string"
+        },
+        "target_id": {
+          "minLength": 1,
+          "title": "Target Id",
+          "type": "string"
+        },
+        "payload": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "title": "Payload",
+          "type": "object"
+        }
+      },
+      "required": [
+        "time_s",
+        "action",
+        "target_id"
+      ],
+      "title": "RuntimeScheduleEntry",
+      "type": "object"
+    },
+    "Size2D": {
+      "additionalProperties": false,
+      "properties": {
+        "width": {
+          "exclusiveMinimum": 0,
+          "title": "Width",
+          "type": "number"
+        },
+        "height": {
+          "exclusiveMinimum": 0,
+          "title": "Height",
+          "type": "number"
+        }
+      },
+      "required": [
+        "width",
+        "height"
+      ],
+      "title": "Size2D",
+      "type": "object"
+    },
+    "WaypointCandidate": {
+      "additionalProperties": false,
+      "properties": {
+        "drone_id": {
+          "minLength": 1,
+          "title": "Drone Id",
+          "type": "string"
+        },
+        "point": {
+          "$ref": "#/$defs/Point2D"
+        },
+        "move_cost": {
+          "minimum": 0,
+          "title": "Move Cost",
+          "type": "number"
+        }
+      },
+      "required": [
+        "drone_id",
+        "point",
+        "move_cost"
+      ],
+      "title": "WaypointCandidate",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "compilation_metadata": {
+      "$ref": "#/$defs/CompilationMetadata"
+    },
+    "normalized_entities": {
+      "items": {
+        "$ref": "#/$defs/NormalizedEntity"
+      },
+      "title": "Normalized Entities",
+      "type": "array"
+    },
+    "obstacle_index": {
+      "items": {
+        "$ref": "#/$defs/ObstacleIndexEntry"
+      },
+      "title": "Obstacle Index",
+      "type": "array"
+    },
+    "candidate_graph_edges": {
+      "items": {
+        "$ref": "#/$defs/CandidateGraphEdge"
+      },
+      "title": "Candidate Graph Edges",
+      "type": "array"
+    },
+    "waypoint_candidates": {
+      "items": {
+        "$ref": "#/$defs/WaypointCandidate"
+      },
+      "title": "Waypoint Candidates",
+      "type": "array"
+    },
+    "mobility_constraints": {
+      "items": {
+        "$ref": "#/$defs/MobilityConstraint"
+      },
+      "title": "Mobility Constraints",
+      "type": "array"
+    },
+    "runtime_schedule": {
+      "items": {
+        "$ref": "#/$defs/RuntimeScheduleEntry"
+      },
+      "title": "Runtime Schedule",
+      "type": "array"
+    }
+  },
+  "required": [
+    "compilation_metadata"
+  ],
+  "title": "CompiledScenario",
+  "type": "object"
+}

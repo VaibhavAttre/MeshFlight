@@ -1,0 +1,493 @@
+{
+  "$defs": {
+    "FailureInjected": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "minLength": 1,
+          "title": "Event Id",
+          "type": "string"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "emitted_at": {
+          "minLength": 1,
+          "title": "Emitted At",
+          "type": "string"
+        },
+        "time_s": {
+          "minimum": 0,
+          "title": "Time S",
+          "type": "number"
+        },
+        "event_type": {
+          "const": "failure_injected",
+          "default": "failure_injected",
+          "title": "Event Type",
+          "type": "string"
+        },
+        "failure_type": {
+          "minLength": 1,
+          "title": "Failure Type",
+          "type": "string"
+        },
+        "target": {
+          "minLength": 1,
+          "title": "Target",
+          "type": "string"
+        },
+        "start_time_s": {
+          "minimum": 0,
+          "title": "Start Time S",
+          "type": "number"
+        }
+      },
+      "required": [
+        "event_id",
+        "run_id",
+        "emitted_at",
+        "time_s",
+        "failure_type",
+        "target",
+        "start_time_s"
+      ],
+      "title": "FailureInjected",
+      "type": "object"
+    },
+    "FlowLifecycleEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "minLength": 1,
+          "title": "Event Id",
+          "type": "string"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "emitted_at": {
+          "minLength": 1,
+          "title": "Emitted At",
+          "type": "string"
+        },
+        "time_s": {
+          "minimum": 0,
+          "title": "Time S",
+          "type": "number"
+        },
+        "event_type": {
+          "enum": [
+            "flow_started",
+            "flow_ended"
+          ],
+          "title": "Event Type",
+          "type": "string"
+        },
+        "flow_id": {
+          "minLength": 1,
+          "title": "Flow Id",
+          "type": "string"
+        },
+        "flow_class": {
+          "minLength": 1,
+          "title": "Flow Class",
+          "type": "string"
+        },
+        "src": {
+          "minLength": 1,
+          "title": "Src",
+          "type": "string"
+        },
+        "dst": {
+          "minLength": 1,
+          "title": "Dst",
+          "type": "string"
+        },
+        "rate_kbps": {
+          "exclusiveMinimum": 0,
+          "title": "Rate Kbps",
+          "type": "integer"
+        },
+        "sla_latency_ms": {
+          "exclusiveMinimum": 0,
+          "title": "Sla Latency Ms",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "event_id",
+        "run_id",
+        "emitted_at",
+        "time_s",
+        "event_type",
+        "flow_id",
+        "flow_class",
+        "src",
+        "dst",
+        "rate_kbps",
+        "sla_latency_ms"
+      ],
+      "title": "FlowLifecycleEvent",
+      "type": "object"
+    },
+    "FlowRerouted": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "minLength": 1,
+          "title": "Event Id",
+          "type": "string"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "emitted_at": {
+          "minLength": 1,
+          "title": "Emitted At",
+          "type": "string"
+        },
+        "time_s": {
+          "minimum": 0,
+          "title": "Time S",
+          "type": "number"
+        },
+        "event_type": {
+          "const": "flow_rerouted",
+          "default": "flow_rerouted",
+          "title": "Event Type",
+          "type": "string"
+        },
+        "flow_id": {
+          "minLength": 1,
+          "title": "Flow Id",
+          "type": "string"
+        },
+        "old_path": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Old Path",
+          "type": "array"
+        },
+        "new_path": {
+          "items": {
+            "type": "string"
+          },
+          "title": "New Path",
+          "type": "array"
+        },
+        "reason": {
+          "minLength": 1,
+          "title": "Reason",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_id",
+        "run_id",
+        "emitted_at",
+        "time_s",
+        "flow_id",
+        "reason"
+      ],
+      "title": "FlowRerouted",
+      "type": "object"
+    },
+    "LinkStateChanged": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "minLength": 1,
+          "title": "Event Id",
+          "type": "string"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "emitted_at": {
+          "minLength": 1,
+          "title": "Emitted At",
+          "type": "string"
+        },
+        "time_s": {
+          "minimum": 0,
+          "title": "Time S",
+          "type": "number"
+        },
+        "event_type": {
+          "const": "link_state_changed",
+          "default": "link_state_changed",
+          "title": "Event Type",
+          "type": "string"
+        },
+        "src": {
+          "minLength": 1,
+          "title": "Src",
+          "type": "string"
+        },
+        "dst": {
+          "minLength": 1,
+          "title": "Dst",
+          "type": "string"
+        },
+        "connected": {
+          "title": "Connected",
+          "type": "boolean"
+        },
+        "snr_db": {
+          "title": "Snr Db",
+          "type": "number"
+        },
+        "cost": {
+          "minimum": 0,
+          "title": "Cost",
+          "type": "number"
+        },
+        "capacity_mbps": {
+          "minimum": 0,
+          "title": "Capacity Mbps",
+          "type": "number"
+        }
+      },
+      "required": [
+        "event_id",
+        "run_id",
+        "emitted_at",
+        "time_s",
+        "src",
+        "dst",
+        "connected",
+        "snr_db",
+        "cost",
+        "capacity_mbps"
+      ],
+      "title": "LinkStateChanged",
+      "type": "object"
+    },
+    "NodeStateChanged": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "minLength": 1,
+          "title": "Event Id",
+          "type": "string"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "emitted_at": {
+          "minLength": 1,
+          "title": "Emitted At",
+          "type": "string"
+        },
+        "time_s": {
+          "minimum": 0,
+          "title": "Time S",
+          "type": "number"
+        },
+        "event_type": {
+          "const": "node_state_changed",
+          "default": "node_state_changed",
+          "title": "Event Type",
+          "type": "string"
+        },
+        "node_id": {
+          "minLength": 1,
+          "title": "Node Id",
+          "type": "string"
+        },
+        "x": {
+          "minimum": 0,
+          "title": "X",
+          "type": "number"
+        },
+        "y": {
+          "minimum": 0,
+          "title": "Y",
+          "type": "number"
+        },
+        "battery_pct": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Battery Pct",
+          "type": "number"
+        },
+        "queue_depth": {
+          "minimum": 0,
+          "title": "Queue Depth",
+          "type": "integer"
+        },
+        "status": {
+          "minLength": 1,
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "event_id",
+        "run_id",
+        "emitted_at",
+        "time_s",
+        "node_id",
+        "x",
+        "y",
+        "battery_pct",
+        "queue_depth",
+        "status"
+      ],
+      "title": "NodeStateChanged",
+      "type": "object"
+    },
+    "PolicyActionChosen": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "minLength": 1,
+          "title": "Event Id",
+          "type": "string"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "emitted_at": {
+          "minLength": 1,
+          "title": "Emitted At",
+          "type": "string"
+        },
+        "time_s": {
+          "minimum": 0,
+          "title": "Time S",
+          "type": "number"
+        },
+        "event_type": {
+          "const": "policy_action_chosen",
+          "default": "policy_action_chosen",
+          "title": "Event Type",
+          "type": "string"
+        },
+        "policy_name": {
+          "minLength": 1,
+          "title": "Policy Name",
+          "type": "string"
+        },
+        "action": {
+          "minLength": 1,
+          "title": "Action",
+          "type": "string"
+        },
+        "affected_nodes": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Affected Nodes",
+          "type": "array"
+        }
+      },
+      "required": [
+        "event_id",
+        "run_id",
+        "emitted_at",
+        "time_s",
+        "policy_name",
+        "action"
+      ],
+      "title": "PolicyActionChosen",
+      "type": "object"
+    },
+    "SnapshotEmitted": {
+      "additionalProperties": false,
+      "properties": {
+        "event_id": {
+          "minLength": 1,
+          "title": "Event Id",
+          "type": "string"
+        },
+        "run_id": {
+          "minLength": 1,
+          "title": "Run Id",
+          "type": "string"
+        },
+        "emitted_at": {
+          "minLength": 1,
+          "title": "Emitted At",
+          "type": "string"
+        },
+        "time_s": {
+          "minimum": 0,
+          "title": "Time S",
+          "type": "number"
+        },
+        "event_type": {
+          "const": "snapshot_emitted",
+          "default": "snapshot_emitted",
+          "title": "Event Type",
+          "type": "string"
+        },
+        "snapshot_id": {
+          "minLength": 1,
+          "title": "Snapshot Id",
+          "type": "string"
+        },
+        "summary_metrics": {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "title": "Summary Metrics",
+          "type": "object"
+        }
+      },
+      "required": [
+        "event_id",
+        "run_id",
+        "emitted_at",
+        "time_s",
+        "snapshot_id"
+      ],
+      "title": "SnapshotEmitted",
+      "type": "object"
+    }
+  },
+  "anyOf": [
+    {
+      "$ref": "#/$defs/NodeStateChanged"
+    },
+    {
+      "$ref": "#/$defs/LinkStateChanged"
+    },
+    {
+      "$ref": "#/$defs/FlowLifecycleEvent"
+    },
+    {
+      "$ref": "#/$defs/FlowRerouted"
+    },
+    {
+      "$ref": "#/$defs/FailureInjected"
+    },
+    {
+      "$ref": "#/$defs/PolicyActionChosen"
+    },
+    {
+      "$ref": "#/$defs/SnapshotEmitted"
+    }
+  ]
+}

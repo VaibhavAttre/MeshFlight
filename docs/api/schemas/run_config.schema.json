@@ -1,0 +1,51 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "run_id": {
+      "minLength": 1,
+      "title": "Run Id",
+      "type": "string"
+    },
+    "scenario_id": {
+      "minLength": 1,
+      "title": "Scenario Id",
+      "type": "string"
+    },
+    "seed": {
+      "minimum": 0,
+      "title": "Seed",
+      "type": "integer"
+    },
+    "tick_interval_ms": {
+      "exclusiveMinimum": 0,
+      "title": "Tick Interval Ms",
+      "type": "integer"
+    },
+    "snapshot_interval_ms": {
+      "exclusiveMinimum": 0,
+      "title": "Snapshot Interval Ms",
+      "type": "integer"
+    },
+    "max_runtime_s": {
+      "exclusiveMinimum": 0,
+      "title": "Max Runtime S",
+      "type": "integer"
+    },
+    "baseline_policy_name": {
+      "minLength": 1,
+      "title": "Baseline Policy Name",
+      "type": "string"
+    }
+  },
+  "required": [
+    "run_id",
+    "scenario_id",
+    "seed",
+    "tick_interval_ms",
+    "snapshot_interval_ms",
+    "max_runtime_s",
+    "baseline_policy_name"
+  ],
+  "title": "RunConfig",
+  "type": "object"
+}
