@@ -1,0 +1,15 @@
+{
+  "name": "meshflight",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:ui": "npm run dev --workspace @meshflight/editor-ui",
+    "build:ui": "npm run build --workspace @meshflight/editor-ui",
+    "typecheck:ui": "npm run typecheck --workspace @meshflight/editor-ui",
+    "lint:ui": "npm run lint --workspace @meshflight/editor-ui"
+  }
+}
