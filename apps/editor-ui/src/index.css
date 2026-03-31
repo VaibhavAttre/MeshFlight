@@ -70,6 +70,91 @@ p {
 .topbar-right {
   display: flex;
   gap: 8px;
+  align-items: center;
+}
+
+.drone-radius-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0.35rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(51, 65, 85, 0.65);
+  background: rgba(15, 23, 42, 0.72);
+  transition:
+    border-color 180ms ease,
+    background-color 220ms ease,
+    transform 180ms ease,
+    box-shadow 220ms ease;
+  backdrop-filter: blur(10px);
+}
+
+.drone-radius-toggle:hover {
+  background: rgba(15, 23, 42, 0.9);
+  border-color: rgba(71, 85, 105, 0.9);
+}
+
+.drone-radius-toggle.is-on {
+  border-color: rgba(59, 130, 246, 0.35);
+  background: rgba(15, 23, 42, 0.88);
+  box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.08);
+}
+
+.drone-radius-toggle__track {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: 999px;
+  background: rgba(2, 6, 23, 0.6);
+  border: 1px solid rgba(71, 85, 105, 0.65);
+  box-shadow: inset 0 1px 2px rgba(2, 6, 23, 0.45);
+  transition:
+    background-color 260ms ease,
+    border-color 260ms ease,
+    box-shadow 260ms ease;
+}
+
+.drone-radius-toggle.is-on .drone-radius-toggle__track {
+  background: rgba(30, 64, 175, 0.22);
+  border-color: rgba(96, 165, 250, 0.45);
+  box-shadow: inset 0 1px 2px rgba(30, 41, 59, 0.35);
+}
+
+.drone-radius-toggle__thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #e2e8f0, #cbd5e1);
+  box-shadow:
+    0 1px 4px rgba(2, 6, 23, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.12);
+  transition:
+    transform 320ms cubic-bezier(0.22, 1, 0.36, 1),
+    background 220ms ease,
+    box-shadow 220ms ease;
+}
+
+.drone-radius-toggle.is-on .drone-radius-toggle__thumb {
+  transform: translateX(20px);
+  background: linear-gradient(180deg, #dbeafe, #93c5fd);
+  box-shadow:
+    0 1px 6px rgba(37, 99, 235, 0.28),
+    0 0 0 1px rgba(191, 219, 254, 0.18);
+}
+
+.drone-radius-toggle__label {
+  font-size: 0.84rem;
+  font-weight: 500;
+  color: #94a3b8;
+  letter-spacing: 0.01em;
+  transition: color 220ms ease;
+}
+
+.drone-radius-toggle.is-on .drone-radius-toggle__label {
+  color: #cbd5e1;
 }
 
 .status-pill {
@@ -171,4 +256,123 @@ p {
   color: #94a3b8;
   text-align: center;
   padding: 24px;
+}
+
+.inspector-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.field-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  background: #111827;
+}
+
+.field-row strong {
+  font-size: 0.8rem;
+  color: #93c5fd;
+}
+
+.field-row span {
+  color: #e5e7eb;
+  word-break: break-word;
+}
+
+.editor-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  background: #111827;
+}
+
+.editor-field span {
+  font-size: 0.8rem;
+  color: #93c5fd;
+}
+
+.editor-field input {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #334155;
+  background: #0f172a;
+  color: #e5e7eb;
+  outline: none;
+}
+
+.editor-field input:focus {
+  border-color: #60a5fa;
+}
+
+.danger-button {
+  background: #7f1d1d;
+  border: 1px solid #991b1b;
+}
+
+.danger-button:hover {
+  background: #991b1b;
+}
+
+.canvas-object-label {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: 0.75rem;
+  color: #e2e8f0;
+  background: rgba(2, 6, 23, 0.9);
+  padding: 2px 6px;
+  border-radius: 6px;
+  pointer-events: none;
+}
+
+.canvas-surface {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+}
+
+.canvas-surface:active {
+  cursor: default;
+}
+
+.range-visual {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: rgba(56, 189, 248, 0.14);
+  border: 1.5px solid rgba(56, 189, 248, 0.55);
+  pointer-events: none;
+}
+
+.resize-handle {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #f8fafc;
+  border: 2px solid #2563eb;
+  cursor: ew-resize;
+  z-index: 20;
+}
+
+.selection-readout {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.9);
+  border: 1px solid #334155;
+  color: #e2e8f0;
+  font-size: 0.85rem;
 }

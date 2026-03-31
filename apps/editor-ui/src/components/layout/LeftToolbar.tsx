@@ -20,18 +20,23 @@ export default function LeftToolbar() {
       <h2>Tools</h2>
 
       <div className="tool-list">
-        {tools.map((tool) => (
-          <button
-            key={tool.value}
-            className="tool-button"
-            onClick={() => setActiveTool(tool.value)}
-            style={{
-              outline: activeTool === tool.value ? "2px solid #60a5fa" : "none",
-            }}
-          >
-            {tool.label}
-          </button>
-        ))}
+        {tools.map((tool) => {
+          const isActive = activeTool === tool.value;
+
+          return (
+            <button
+              key={tool.value}
+              className="tool-button"
+              onClick={() => setActiveTool(tool.value)}
+              style={{
+                outline: isActive ? "2px solid #60a5fa" : "none",
+                background: isActive ? "#1d4ed8" : undefined,
+              }}
+            >
+              {tool.label}
+            </button>
+          );
+        })}
       </div>
     </aside>
   );
