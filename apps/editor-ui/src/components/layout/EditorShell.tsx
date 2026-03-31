@@ -1,18 +1,20 @@
 import { useEffect } from "react";
 
 import { useEditorStore } from "../../app/editorStore";
-import TopBar from "./TopBar";
+import CanvasViewport from "./CanvasViewport";
 import LeftToolbar from "./LeftToolbar";
 import RightInspector from "./RightInspector";
-import CanvasViewport from "./CanvasViewport";
+import TopBar from "./TopBar";
 
 export default function EditorShell() {
-  const selectedObjectId = useEditorStore((s) => s.selectedObjectId);
-  const removeObject = useEditorStore((s) => s.removeObject);
+  const selectedObjectIds = useEditorStore((s) => s.selectedObjectIds);
+  const removeSelectedObjects = useEditorStore((s) => s.removeSelectedObjects);
+  const copySelectedObjects = useEditorStore((s) => s.copySelectedObjects);
+  const pasteClipboard = useEditorStore((s) => s.pasteClipboard);
 
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
-      if (!selectedObjectId) return;
+      if (selectedObjectIds.length === 0 && !(event.metaKey || event.ctrlKey)) return;
 
       const target = event.target;
       if (
@@ -24,15 +26,30 @@ export default function EditorShell() {
         return;
       }
 
+      const isModifierPressed = event.metaKey || event.ctrlKey;
+      const key = event.key.toLowerCase();
+
       if (event.key === "Backspace" || event.key === "Delete") {
         event.preventDefault();
-        removeObject(selectedObjectId);
+        removeSelectedObjects();
+        return;
+      }
+
+      if (isModifierPressed && key === "c") {
+        event.preventDefault();
+        copySelectedObjects();
+        return;
+      }
+
+      if (isModifierPressed && key === "v") {
+        event.preventDefault();
+        pasteClipboard();
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [removeObject, selectedObjectId]);
+  }, [copySelectedObjects, pasteClipboard, removeSelectedObjects, selectedObjectIds.length]);
 
   return (
     <div className="app-shell">

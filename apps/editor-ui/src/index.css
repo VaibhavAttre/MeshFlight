@@ -18,6 +18,7 @@ body,
 
 body {
   overflow: hidden;
+  scrollbar-color: #334155 #0b1220;
 }
 
 button {
@@ -191,6 +192,44 @@ p {
   gap: 10px;
 }
 
+.toolbar-section {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid #1e293b;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.toolbar-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.toolbar-field span {
+  font-size: 0.8rem;
+  color: #93c5fd;
+}
+
+.toolbar-field input {
+  width: 100%;
+  padding: 9px 10px;
+  border-radius: 8px;
+  border: 1px solid #334155;
+  background: #0f172a;
+  color: #e5e7eb;
+  outline: none;
+}
+
+.toolbar-field input:focus {
+  border-color: #60a5fa;
+}
+
+.toolbar-action {
+  margin-top: 4px;
+}
+
 .tool-button {
   width: 100%;
   text-align: left;
@@ -201,6 +240,34 @@ p {
   padding: 16px;
   background: #0b1220;
   overflow-y: auto;
+}
+
+.left-toolbar,
+.right-inspector {
+  scrollbar-width: thin;
+  scrollbar-color: #334155 #0b1220;
+}
+
+.left-toolbar::-webkit-scrollbar,
+.right-inspector::-webkit-scrollbar {
+  width: 10px;
+}
+
+.left-toolbar::-webkit-scrollbar-track,
+.right-inspector::-webkit-scrollbar-track {
+  background: #0b1220;
+}
+
+.left-toolbar::-webkit-scrollbar-thumb,
+.right-inspector::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #334155, #1e293b);
+  border-radius: 999px;
+  border: 2px solid #0b1220;
+}
+
+.left-toolbar::-webkit-scrollbar-thumb:hover,
+.right-inspector::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(180deg, #475569, #334155);
 }
 
 .inspector-empty {
@@ -353,6 +420,60 @@ p {
   background: rgba(56, 189, 248, 0.14);
   border: 1.5px solid rgba(56, 189, 248, 0.55);
   pointer-events: none;
+}
+
+.link-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.flow-line {
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 10 10;
+  opacity: 0.5;
+}
+
+.flow-line--forward {
+  stroke: rgba(125, 211, 252, 0.42);
+  animation: flow-forward 1.6s linear infinite;
+}
+
+.flow-line--reverse {
+  stroke: rgba(196, 181, 253, 0.34);
+  animation: flow-reverse 1.6s linear infinite;
+}
+
+@keyframes flow-forward {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+@keyframes flow-reverse {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: 20;
+  }
+}
+
+.selection-box {
+  position: absolute;
+  border: 1px solid rgba(96, 165, 250, 0.9);
+  background: rgba(59, 130, 246, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(191, 219, 254, 0.12);
+  pointer-events: none;
+  z-index: 5;
 }
 
 .resize-handle {

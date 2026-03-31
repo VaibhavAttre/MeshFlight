@@ -1,4 +1,4 @@
-import { useEditorStore } from "../../app/editorStore";
+import { useEditorStore, type EditorObject } from "../../app/editorStore";
 
 function NumberInput({
   label,
@@ -45,15 +45,29 @@ function TextInput({
   );
 }
 
+type SharedSelectionType = EditorObject["type"] | null;
+
+function getSharedSelectionType(objects: EditorObject[]): SharedSelectionType {
+  if (objects.length === 0) return null;
+  const firstType = objects[0].type;
+  return objects.every((object) => object.type === firstType) ? firstType : null;
+}
+
 export default function RightInspector() {
-  const selectedObjectId = useEditorStore((s) => s.selectedObjectId);
+  const selectedObjectIds = useEditorStore((s) => s.selectedObjectIds);
   const objects = useEditorStore((s) => s.objects);
   const updateObject = useEditorStore((s) => s.updateObject);
+  const updateObjectsById = useEditorStore((s) => s.updateObjectsById);
   const removeObject = useEditorStore((s) => s.removeObject);
+  const removeSelectedObjects = useEditorStore((s) => s.removeSelectedObjects);
 
-  const selectedObject = objects.find((obj) => obj.id === selectedObjectId);
+  const selectedObjects = objects.filter((obj) => selectedObjectIds.includes(obj.id));
+  const sharedType = getSharedSelectionType(selectedObjects);
+  const isMultiSelect = selectedObjects.length > 1;
+  const singleSelectedObject = selectedObjects.length === 1 ? selectedObjects[0] : null;
+  const sharedObjects = selectedObjects;
 
-  if (!selectedObject) {
+  if (selectedObjects.length === 0) {
     return (
       <aside className="right-inspector">
         <h2>Inspector</h2>
@@ -65,6 +79,181 @@ export default function RightInspector() {
     );
   }
 
+  if (isMultiSelect) {
+    const sharedDroneObjects =
+      sharedType === "drone" ? (sharedObjects as Extract<EditorObject, { type: "drone" }>[]) : null;
+    const sharedGatewayObjects =
+      sharedType === "gateway"
+        ? (sharedObjects as Extract<EditorObject, { type: "gateway" }>[])
+        : null;
+    const sharedClientObjects =
+      sharedType === "client" ? (sharedObjects as Extract<EditorObject, { type: "client" }>[]) : null;
+    const sharedBuildingObjects =
+      sharedType === "building"
+        ? (sharedObjects as Extract<EditorObject, { type: "building" }>[])
+        : null;
+    const sharedWallObjects =
+      sharedType === "wall" ? (sharedObjects as Extract<EditorObject, { type: "wall" }>[]) : null;
+    const sharedTreeZoneObjects =
+      sharedType === "tree-zone"
+        ? (sharedObjects as Extract<EditorObject, { type: "tree-zone" }>[])
+        : null;
+    const sharedDemandZoneObjects =
+      sharedType === "demand-zone"
+        ? (sharedObjects as Extract<EditorObject, { type: "demand-zone" }>[])
+        : null;
+
+    return (
+      <aside className="right-inspector">
+        <h2>Inspector</h2>
+
+        <div className="inspector-fields">
+          <div className="field-row">
+            <strong>Selection</strong>
+            <span>{selectedObjects.length} objects</span>
+          </div>
+
+          <div className="field-row">
+            <strong>Type Mode</strong>
+            <span>{sharedType ? `Shared: ${sharedType}` : "Mixed types"}</span>
+          </div>
+
+          {!sharedType && (
+            <div className="field-row">
+              <strong>Available Actions</strong>
+              <span>Drag to move, Ctrl/Cmd+C to copy, Ctrl/Cmd+V to paste, Delete to remove.</span>
+            </div>
+          )}
+
+          {sharedDroneObjects && (
+            <>
+              <NumberInput
+                label="Radio Range"
+                value={sharedDroneObjects[0].radioRange}
+                onChange={(value) =>
+                  updateObjectsById(selectedObjectIds, () => ({ radioRange: value }))
+                }
+              />
+              <NumberInput
+                label="Battery"
+                value={sharedDroneObjects[0].battery}
+                onChange={(value) =>
+                  updateObjectsById(selectedObjectIds, () => ({ battery: value }))
+                }
+              />
+            </>
+          )}
+
+          {sharedGatewayObjects && (
+            <TextInput
+              label="Uplink"
+              value={sharedGatewayObjects[0].uplink}
+              onChange={(value) =>
+                updateObjectsById(selectedObjectIds, () => ({ uplink: value }))
+              }
+            />
+          )}
+
+          {sharedClientObjects && (
+            <TextInput
+              label="Demand Class"
+              value={sharedClientObjects[0].demandClass}
+              onChange={(value) =>
+                updateObjectsById(selectedObjectIds, () => ({ demandClass: value }))
+              }
+            />
+          )}
+
+          {sharedBuildingObjects && (
+            <>
+              <NumberInput
+                label="Width"
+                value={sharedBuildingObjects[0].width}
+                onChange={(value) =>
+                  updateObjectsById(selectedObjectIds, () => ({ width: value }))
+                }
+              />
+              <NumberInput
+                label="Height"
+                value={sharedBuildingObjects[0].height}
+                onChange={(value) =>
+                  updateObjectsById(selectedObjectIds, () => ({ height: value }))
+                }
+              />
+              <NumberInput
+                label="Attenuation"
+                value={sharedBuildingObjects[0].attenuation}
+                step={0.05}
+                onChange={(value) =>
+                  updateObjectsById(selectedObjectIds, () => ({ attenuation: value }))
+                }
+              />
+            </>
+          )}
+
+          {sharedWallObjects && (
+            <>
+              <NumberInput
+                label="Length"
+                value={sharedWallObjects[0].length}
+                onChange={(value) =>
+                  updateObjectsById(selectedObjectIds, () => ({ length: value }))
+                }
+              />
+              <NumberInput
+                label="Attenuation"
+                value={sharedWallObjects[0].attenuation}
+                step={0.05}
+                onChange={(value) =>
+                  updateObjectsById(selectedObjectIds, () => ({ attenuation: value }))
+                }
+              />
+            </>
+          )}
+
+          {(sharedTreeZoneObjects || sharedDemandZoneObjects) && (
+            <NumberInput
+              label="Radius"
+              value={(sharedTreeZoneObjects ?? sharedDemandZoneObjects)![0].radius}
+              onChange={(value) =>
+                updateObjectsById(selectedObjectIds, () => ({ radius: value }))
+              }
+            />
+          )}
+
+          {sharedTreeZoneObjects && (
+            <NumberInput
+              label="Attenuation"
+              value={sharedTreeZoneObjects[0].attenuation}
+              step={0.05}
+              onChange={(value) =>
+                updateObjectsById(selectedObjectIds, () => ({ attenuation: value }))
+              }
+            />
+          )}
+
+          {sharedDemandZoneObjects && (
+            <NumberInput
+              label="Intensity"
+              value={sharedDemandZoneObjects[0].intensity}
+              onChange={(value) =>
+                updateObjectsById(selectedObjectIds, () => ({ intensity: value }))
+              }
+            />
+          )}
+
+          <button className="danger-button" onClick={removeSelectedObjects}>
+            Delete Selected
+          </button>
+        </div>
+      </aside>
+    );
+  }
+
+  if (!singleSelectedObject) {
+    return null;
+  }
+
   return (
     <aside className="right-inspector">
       <h2>Inspector</h2>
@@ -72,138 +261,120 @@ export default function RightInspector() {
       <div className="inspector-fields">
         <div className="field-row">
           <strong>ID</strong>
-          <span>{selectedObject.id}</span>
+          <span>{singleSelectedObject.id}</span>
         </div>
 
         <div className="field-row">
           <strong>Type</strong>
-          <span>{selectedObject.type}</span>
+          <span>{singleSelectedObject.type}</span>
         </div>
 
         <TextInput
           label="Label"
-          value={selectedObject.label}
-          onChange={(value) =>
-            updateObject(selectedObject.id, { label: value })
-          }
+          value={singleSelectedObject.label}
+          onChange={(value) => updateObject(singleSelectedObject.id, { label: value })}
         />
 
         <NumberInput
           label="X"
-          value={selectedObject.x}
-          onChange={(value) => updateObject(selectedObject.id, { x: value })}
+          value={singleSelectedObject.x}
+          onChange={(value) => updateObject(singleSelectedObject.id, { x: value })}
         />
 
         <NumberInput
           label="Y"
-          value={selectedObject.y}
-          onChange={(value) => updateObject(selectedObject.id, { y: value })}
+          value={singleSelectedObject.y}
+          onChange={(value) => updateObject(singleSelectedObject.id, { y: value })}
         />
 
-        {"radioRange" in selectedObject && (
+        {"radioRange" in singleSelectedObject && (
           <NumberInput
             label="Radio Range"
-            value={selectedObject.radioRange}
-            onChange={(value) =>
-              updateObject(selectedObject.id, { radioRange: value })
-            }
+            value={singleSelectedObject.radioRange}
+            onChange={(value) => updateObject(singleSelectedObject.id, { radioRange: value })}
           />
         )}
 
-        {"battery" in selectedObject && (
+        {"battery" in singleSelectedObject && (
           <NumberInput
             label="Battery"
-            value={selectedObject.battery}
-            onChange={(value) =>
-              updateObject(selectedObject.id, { battery: value })
-            }
+            value={singleSelectedObject.battery}
+            onChange={(value) => updateObject(singleSelectedObject.id, { battery: value })}
           />
         )}
 
-        {"uplink" in selectedObject && (
+        {"uplink" in singleSelectedObject && (
           <TextInput
             label="Uplink"
-            value={selectedObject.uplink}
-            onChange={(value) =>
-              updateObject(selectedObject.id, { uplink: value })
-            }
+            value={singleSelectedObject.uplink}
+            onChange={(value) => updateObject(singleSelectedObject.id, { uplink: value })}
           />
         )}
 
-        {"demandClass" in selectedObject && (
+        {"demandClass" in singleSelectedObject && (
           <TextInput
             label="Demand Class"
-            value={selectedObject.demandClass}
+            value={singleSelectedObject.demandClass}
             onChange={(value) =>
-              updateObject(selectedObject.id, { demandClass: value })
+              updateObject(singleSelectedObject.id, { demandClass: value })
             }
           />
         )}
 
-        {"width" in selectedObject && (
+        {"width" in singleSelectedObject && (
           <NumberInput
             label="Width"
-            value={selectedObject.width}
-            onChange={(value) =>
-              updateObject(selectedObject.id, { width: value })
-            }
+            value={singleSelectedObject.width}
+            onChange={(value) => updateObject(singleSelectedObject.id, { width: value })}
           />
         )}
 
-        {"height" in selectedObject && (
+        {"height" in singleSelectedObject && (
           <NumberInput
             label="Height"
-            value={selectedObject.height}
-            onChange={(value) =>
-              updateObject(selectedObject.id, { height: value })
-            }
+            value={singleSelectedObject.height}
+            onChange={(value) => updateObject(singleSelectedObject.id, { height: value })}
           />
         )}
 
-        {"length" in selectedObject && (
+        {"length" in singleSelectedObject && (
           <NumberInput
             label="Length"
-            value={selectedObject.length}
-            onChange={(value) =>
-              updateObject(selectedObject.id, { length: value })
-            }
+            value={singleSelectedObject.length}
+            onChange={(value) => updateObject(singleSelectedObject.id, { length: value })}
           />
         )}
 
-        {"radius" in selectedObject && (
+        {"radius" in singleSelectedObject && (
           <NumberInput
             label="Radius"
-            value={selectedObject.radius}
-            onChange={(value) =>
-              updateObject(selectedObject.id, { radius: value })
-            }
+            value={singleSelectedObject.radius}
+            onChange={(value) => updateObject(singleSelectedObject.id, { radius: value })}
           />
         )}
 
-        {"attenuation" in selectedObject && (
+        {"attenuation" in singleSelectedObject && (
           <NumberInput
             label="Attenuation"
-            value={selectedObject.attenuation}
+            value={singleSelectedObject.attenuation}
             step={0.05}
             onChange={(value) =>
-              updateObject(selectedObject.id, { attenuation: value })
+              updateObject(singleSelectedObject.id, { attenuation: value })
             }
           />
         )}
 
-        {"intensity" in selectedObject && (
+        {"intensity" in singleSelectedObject && (
           <NumberInput
             label="Intensity"
-            value={selectedObject.intensity}
-            onChange={(value) =>
-              updateObject(selectedObject.id, { intensity: value })
-            }
+            value={singleSelectedObject.intensity}
+            onChange={(value) => updateObject(singleSelectedObject.id, { intensity: value })}
           />
         )}
 
         <button
           className="danger-button"
-          onClick={() => removeObject(selectedObject.id)}
+          onClick={() => removeObject(singleSelectedObject.id)}
         >
           Delete Object
         </button>
