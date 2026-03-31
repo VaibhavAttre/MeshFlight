@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/app/editorstore.ts","./src/components/layout/canvasviewport.tsx","./src/components/layout/editorshell.tsx","./src/components/layout/lefttoolbar.tsx","./src/components/layout/rightinspector.tsx","./src/components/layout/topbar.tsx"],"version":"5.9.3"}

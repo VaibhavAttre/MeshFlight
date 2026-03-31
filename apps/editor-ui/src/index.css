@@ -1,0 +1,174 @@
+:root {
+  font-family: Inter, system-ui, sans-serif;
+  color: #e5e7eb;
+  background: #0f172a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  overflow: hidden;
+}
+
+button {
+  border: 1px solid #334155;
+  background: #1e293b;
+  color: #e5e7eb;
+  border-radius: 8px;
+  padding: 0.55rem 0.85rem;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #334155;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100vw;
+  background: #020617;
+}
+
+.topbar {
+  height: 64px;
+  border-bottom: 1px solid #1e293b;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: #0f172a;
+}
+
+.topbar-left h1 {
+  font-size: 1.1rem;
+}
+
+.topbar-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.topbar-right {
+  display: flex;
+  gap: 8px;
+}
+
+.status-pill {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #1e293b;
+  border: 1px solid #334155;
+  font-size: 0.85rem;
+}
+
+.main-layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 220px 1fr 300px;
+  min-height: 0;
+}
+
+.left-toolbar {
+  border-right: 1px solid #1e293b;
+  padding: 16px;
+  background: #0b1220;
+  overflow-y: auto;
+}
+
+.left-toolbar h2,
+.right-inspector h2 {
+  font-size: 0.95rem;
+  margin-bottom: 12px;
+}
+
+.tool-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tool-button {
+  width: 100%;
+  text-align: left;
+}
+
+.right-inspector {
+  border-left: 1px solid #1e293b;
+  padding: 16px;
+  background: #0b1220;
+  overflow-y: auto;
+}
+
+.inspector-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: #94a3b8;
+  font-size: 0.95rem;
+}
+
+.canvas-viewport {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: #111827;
+}
+
+.canvas-header {
+  height: 48px;
+  border-bottom: 1px solid #1e293b;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: #0f172a;
+}
+
+.canvas-surface {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+}
+
+.grid-overlay {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(to right, rgba(148, 163, 184, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(148, 163, 184, 0.08) 1px, transparent 1px);
+  background-size: 32px 32px;
+  pointer-events: none;
+}
+
+.canvas-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  text-align: center;
+  padding: 24px;
+}
