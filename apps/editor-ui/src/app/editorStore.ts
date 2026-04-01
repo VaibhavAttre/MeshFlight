@@ -1,5 +1,8 @@
 import { create } from "zustand";
-
+import {
+  createEmptyEditorDocument,
+  type EditorDocument,
+} from "./editorDocument";
 import { cloneEditorObject, createDemandZoneObject } from "./objectFactory";
 
 export type Tool =
@@ -112,6 +115,13 @@ type EditorStore = {
   setAutoZoneIntensity: (value: number) => void;
   autoDemandZonesEnabled: boolean;
   toggleAutoDemandZones: () => void;
+
+  documentName: string;
+  setDocumentName: (name: string) => void;
+
+  resetDocument: () => void;
+  replaceFromDocument: (doc: EditorDocument) => void;
+  exportToDocument: () => EditorDocument;
 };
 
 export function computeAutoDemandZones(state: {
@@ -240,6 +250,9 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   activeTool: "select",
   setActiveTool: (tool) => set({ activeTool: tool }),
 
+  documentName: "untitled-scenario",
+  setDocumentName: (name) => set({ documentName: name }),
+
   showDroneRanges: false,
   toggleDroneRanges: () =>
     set((state) => ({ showDroneRanges: !state.showDroneRanges })),
@@ -356,4 +369,64 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
     set((state) => ({
       autoDemandZonesEnabled: !state.autoDemandZonesEnabled,
     })),
+
+  resetDocument: () => {
+    const empty = createEmptyEditorDocument();
+    set({
+      activeTool: "select",
+      documentName: empty.name,
+      showDroneRanges: empty.view.showDroneRanges,
+      showClientDroneLinks: empty.view.showClientDroneLinks,
+      selectedObjectId: null,
+      selectedObjectIds: [],
+      objects: empty.objects,
+      clipboardObjects: [],
+      densityCellSize: empty.view.densityCellSize,
+      densityThreshold: empty.view.densityThreshold,
+      autoZoneRadius: empty.view.autoZoneRadius,
+      autoZoneIntensity: empty.view.autoZoneIntensity,
+      autoDemandZonesEnabled: empty.view.autoDemandZonesEnabled,
+    });
+  },
+
+  replaceFromDocument: (doc) => {
+    set({
+      activeTool: "select",
+      documentName: doc.name,
+      showDroneRanges: doc.view.showDroneRanges,
+      showClientDroneLinks: doc.view.showClientDroneLinks,
+      selectedObjectId: null,
+      selectedObjectIds: [],
+      objects: doc.objects,
+      clipboardObjects: [],
+      densityCellSize: doc.view.densityCellSize,
+      densityThreshold: doc.view.densityThreshold,
+      autoZoneRadius: doc.view.autoZoneRadius,
+      autoZoneIntensity: doc.view.autoZoneIntensity,
+      autoDemandZonesEnabled: doc.view.autoDemandZonesEnabled,
+    });
+  },
+
+  exportToDocument: () => {
+    const state = get();
+    return {
+      version: 1,
+      name: state.documentName,
+      savedAt: new Date().toISOString(),
+      canvas: {
+        width: 2000,
+        height: 1200,
+      },
+      objects: state.objects,
+      view: {
+        showDroneRanges: state.showDroneRanges,
+        showClientDroneLinks: state.showClientDroneLinks,
+        densityCellSize: state.densityCellSize,
+        densityThreshold: state.densityThreshold,
+        autoZoneRadius: state.autoZoneRadius,
+        autoZoneIntensity: state.autoZoneIntensity,
+        autoDemandZonesEnabled: state.autoDemandZonesEnabled,
+      },
+    };
+  },
 }));

@@ -1,10 +1,52 @@
+import { useRef } from "react";
+
 import { useEditorStore } from "../../app/editorStore";
+import {
+  downloadScenarioSource,
+  readEditorDocumentFromFile,
+} from "../../lib/editorFileIO";
 
 export default function TopBar() {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const documentName = useEditorStore((s) => s.documentName);
+
   const showDroneRanges = useEditorStore((s) => s.showDroneRanges);
   const toggleDroneRanges = useEditorStore((s) => s.toggleDroneRanges);
+
   const showClientDroneLinks = useEditorStore((s) => s.showClientDroneLinks);
   const toggleClientDroneLinks = useEditorStore((s) => s.toggleClientDroneLinks);
+
+  const resetDocument = useEditorStore((s) => s.resetDocument);
+  const replaceFromDocument = useEditorStore((s) => s.replaceFromDocument);
+  const exportToDocument = useEditorStore((s) => s.exportToDocument);
+  const setDocumentName = useEditorStore((s) => s.setDocumentName);
+
+  function handleNew() {
+    resetDocument();
+  }
+
+  function handleSave() {
+    const doc = exportToDocument();
+    downloadScenarioSource(doc);
+  }
+
+  async function handleFileChange(
+    event: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const doc = await readEditorDocumentFromFile(file);
+      replaceFromDocument(doc);
+    } catch (error) {
+      console.error(error);
+      window.alert("Could not load that file.");
+    } finally {
+      event.target.value = "";
+    }
+  }
 
   return (
     <header className="topbar">
@@ -13,7 +55,12 @@ export default function TopBar() {
       </div>
 
       <div className="topbar-center">
-        <span className="status-pill">No scenario loaded</span>
+        <input
+          value={documentName}
+          onChange={(e) => setDocumentName(e.target.value)}
+          className="topbar-name-input"
+          placeholder="Scenario name"
+        />
       </div>
 
       <div className="topbar-right">
@@ -30,6 +77,7 @@ export default function TopBar() {
             Drone Radius {showDroneRanges ? "On" : "Off"}
           </span>
         </button>
+
         <button
           type="button"
           className={`drone-radius-toggle ${showClientDroneLinks ? "is-on" : ""}`}
@@ -43,9 +91,29 @@ export default function TopBar() {
             Link Flow {showClientDroneLinks ? "On" : "Off"}
           </span>
         </button>
-        <button>New</button>
-        <button>Load</button>
-        <button>Save</button>
+
+        <button type="button" onClick={handleNew}>
+          New
+        </button>
+
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+        >
+          Load
+        </button>
+
+        <button type="button" onClick={handleSave}>
+          Save
+        </button>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/json"
+          style={{ display: "none" }}
+          onChange={handleFileChange}
+        />
       </div>
     </header>
   );
