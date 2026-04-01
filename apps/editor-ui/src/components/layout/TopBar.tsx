@@ -2,9 +2,13 @@ import { useRef } from "react";
 
 import { useEditorStore } from "../../app/editorStore";
 import {
-  downloadScenarioSource,
-  readEditorDocumentFromFile,
-} from "../../lib/editorFileIO";
+  editorDocumentToScenarioSource,
+  scenarioSourceToEditorDocument,
+} from "../../lib/scenarioMapper";
+import {
+  downloadScenarioFile,
+  readScenarioFile,
+} from "../../lib/scenarioFileIO";
 
 export default function TopBar() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -28,7 +32,8 @@ export default function TopBar() {
 
   function handleSave() {
     const doc = exportToDocument();
-    downloadScenarioSource(doc);
+    const scenario = editorDocumentToScenarioSource(doc);
+    downloadScenarioFile(doc.name, scenario);
   }
 
   async function handleFileChange(
@@ -38,11 +43,12 @@ export default function TopBar() {
     if (!file) return;
 
     try {
-      const doc = await readEditorDocumentFromFile(file);
+      const raw = await readScenarioFile(file);
+      const doc = scenarioSourceToEditorDocument(raw as never);
       replaceFromDocument(doc);
     } catch (error) {
       console.error(error);
-      window.alert("Could not load that file.");
+      window.alert("Could not load that scenario file.");
     } finally {
       event.target.value = "";
     }
