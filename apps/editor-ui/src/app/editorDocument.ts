@@ -1,4 +1,4 @@
-import type { EditorObject } from "./editorStore";
+import type { EditorChaosEvent, EditorObject } from "./editorStore";
 
 export type EditorDocument = {
   version: 1;
@@ -9,6 +9,7 @@ export type EditorDocument = {
     height: number;
   };
   objects: EditorObject[];
+  events: EditorChaosEvent[];
   view: {
     showDroneRanges: boolean;
     showClientDroneLinks: boolean;
@@ -17,6 +18,8 @@ export type EditorDocument = {
     autoZoneRadius: number;
     autoZoneIntensity: number;
     autoDemandZonesEnabled: boolean;
+    snapToGrid: boolean;
+    gridSize: number;
   };
 };
 
@@ -30,6 +33,7 @@ export function createEmptyEditorDocument(): EditorDocument {
       height: 1200,
     },
     objects: [],
+    events: [],
     view: {
       showDroneRanges: false,
       showClientDroneLinks: false,
@@ -38,6 +42,8 @@ export function createEmptyEditorDocument(): EditorDocument {
       autoZoneRadius: 80,
       autoZoneIntensity: 10,
       autoDemandZonesEnabled: false,
+      snapToGrid: false,
+      gridSize: 32,
     },
   };
 }

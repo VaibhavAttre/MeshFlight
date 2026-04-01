@@ -77,6 +77,21 @@ export type EditorObject =
   | TreeZoneObject
   | DemandZoneObject;
 
+export type ChaosEventType =
+  | "node_failure"
+  | "obstacle_appearance"
+  | "interference_spike"
+  | "demand_burst";
+
+export type EditorChaosEvent = {
+  id: string;
+  eventType: ChaosEventType;
+  targetEntityId: string;
+  triggerTimeS: number;
+  durationS: number;
+  intensity: number;
+};
+
 type EditorStore = {
   activeTool: Tool;
   setActiveTool: (tool: Tool) => void;
@@ -115,6 +130,19 @@ type EditorStore = {
   setAutoZoneIntensity: (value: number) => void;
   autoDemandZonesEnabled: boolean;
   toggleAutoDemandZones: () => void;
+
+  snapToGrid: boolean;
+  toggleSnapToGrid: () => void;
+  gridSize: number;
+  setGridSize: (value: number) => void;
+
+  canvasWidth: number;
+  canvasHeight: number;
+
+  events: EditorChaosEvent[];
+  addEvent: (event?: Partial<EditorChaosEvent>) => void;
+  updateEvent: (id: string, patch: Partial<EditorChaosEvent>) => void;
+  removeEvent: (id: string) => void;
 
   documentName: string;
   setDocumentName: (name: string) => void;
@@ -370,6 +398,47 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       autoDemandZonesEnabled: !state.autoDemandZonesEnabled,
     })),
 
+  snapToGrid: false,
+  toggleSnapToGrid: () =>
+    set((state) => ({
+      snapToGrid: !state.snapToGrid,
+    })),
+
+  gridSize: 32,
+  setGridSize: (value) =>
+    set({
+      gridSize: Math.max(4, Math.round(value) || 4),
+    }),
+
+  canvasWidth: 2000,
+  canvasHeight: 1200,
+
+  events: [],
+  addEvent: (event) =>
+    set((state) => ({
+      events: [
+        ...state.events,
+        {
+          id: event?.id ?? `event-${crypto.randomUUID().slice(0, 8)}`,
+          eventType: event?.eventType ?? "node_failure",
+          targetEntityId: event?.targetEntityId ?? "",
+          triggerTimeS: event?.triggerTimeS ?? 30,
+          durationS: event?.durationS ?? 15,
+          intensity: event?.intensity ?? 1,
+        },
+      ],
+    })),
+  updateEvent: (id, patch) =>
+    set((state) => ({
+      events: state.events.map((event) =>
+        event.id === id ? { ...event, ...patch } : event
+      ),
+    })),
+  removeEvent: (id) =>
+    set((state) => ({
+      events: state.events.filter((event) => event.id !== id),
+    })),
+
   resetDocument: () => {
     const empty = createEmptyEditorDocument();
     set({
@@ -386,6 +455,11 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       autoZoneRadius: empty.view.autoZoneRadius,
       autoZoneIntensity: empty.view.autoZoneIntensity,
       autoDemandZonesEnabled: empty.view.autoDemandZonesEnabled,
+      snapToGrid: empty.view.snapToGrid,
+      gridSize: empty.view.gridSize,
+      canvasWidth: empty.canvas.width,
+      canvasHeight: empty.canvas.height,
+      events: empty.events,
     });
   },
 
@@ -404,6 +478,11 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       autoZoneRadius: doc.view.autoZoneRadius,
       autoZoneIntensity: doc.view.autoZoneIntensity,
       autoDemandZonesEnabled: doc.view.autoDemandZonesEnabled,
+      snapToGrid: doc.view.snapToGrid,
+      gridSize: doc.view.gridSize,
+      canvasWidth: doc.canvas.width,
+      canvasHeight: doc.canvas.height,
+      events: doc.events,
     });
   },
 
@@ -414,10 +493,11 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       name: state.documentName,
       savedAt: new Date().toISOString(),
       canvas: {
-        width: 2000,
-        height: 1200,
+        width: state.canvasWidth,
+        height: state.canvasHeight,
       },
       objects: state.objects,
+      events: state.events,
       view: {
         showDroneRanges: state.showDroneRanges,
         showClientDroneLinks: state.showClientDroneLinks,
@@ -426,6 +506,8 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
         autoZoneRadius: state.autoZoneRadius,
         autoZoneIntensity: state.autoZoneIntensity,
         autoDemandZonesEnabled: state.autoDemandZonesEnabled,
+        snapToGrid: state.snapToGrid,
+        gridSize: state.gridSize,
       },
     };
   },

@@ -1,5 +1,13 @@
 import type { EditorDocument } from "../app/editorDocument";
-import type { EditorObject } from "../app/editorStore";
+import type {
+  ChaosEventType,
+  EditorChaosEvent,
+  EditorObject,
+} from "../app/editorStore";
+import {
+  normalizeDemandClass,
+  normalizeGatewayUplink,
+} from "./editorOptions";
 
 type AnyRecord = Record<string, unknown>;
 
@@ -37,6 +45,19 @@ function assertObjectType(
   }
 }
 
+function assertEventType(type: string): asserts type is ChaosEventType {
+  const allowed = new Set([
+    "node_failure",
+    "obstacle_appearance",
+    "interference_spike",
+    "demand_burst",
+  ]);
+
+  if (!allowed.has(type)) {
+    throw new Error(`Unsupported event type: ${type}`);
+  }
+}
+
 function normalizeObject(raw: unknown): EditorObject {
   if (!isRecord(raw)) {
     throw new Error("Each object must be an object.");
@@ -64,7 +85,7 @@ function normalizeObject(raw: unknown): EditorObject {
         x: asNumber(raw.x, 0),
         y: asNumber(raw.y, 0),
         label: asString(raw.label, type),
-        uplink: asString(raw.uplink, "fiber"),
+        uplink: normalizeGatewayUplink(asString(raw.uplink, "fiber")),
       };
 
     case "client":
@@ -74,7 +95,7 @@ function normalizeObject(raw: unknown): EditorObject {
         x: asNumber(raw.x, 0),
         y: asNumber(raw.y, 0),
         label: asString(raw.label, type),
-        demandClass: asString(raw.demandClass, "standard"),
+        demandClass: normalizeDemandClass(asString(raw.demandClass, "telemetry")),
       };
 
     case "building":
@@ -126,6 +147,24 @@ function normalizeObject(raw: unknown): EditorObject {
   }
 }
 
+function normalizeEvent(raw: unknown): EditorChaosEvent {
+  if (!isRecord(raw)) {
+    throw new Error("Each event must be an object.");
+  }
+
+  const eventType = asString(raw.eventType, "node_failure");
+  assertEventType(eventType);
+
+  return {
+    id: asString(raw.id, crypto.randomUUID()),
+    eventType,
+    targetEntityId: asString(raw.targetEntityId, ""),
+    triggerTimeS: asNumber(raw.triggerTimeS, 30),
+    durationS: asNumber(raw.durationS, 15),
+    intensity: asNumber(raw.intensity, 1),
+  };
+}
+
 export function normalizeEditorDocument(raw: unknown): EditorDocument {
   if (!isRecord(raw)) {
     throw new Error("Document must be an object.");
@@ -139,6 +178,7 @@ export function normalizeEditorDocument(raw: unknown): EditorDocument {
   const canvasRaw = isRecord(raw.canvas) ? raw.canvas : {};
   const viewRaw = isRecord(raw.view) ? raw.view : {};
   const objectsRaw = Array.isArray(raw.objects) ? raw.objects : null;
+  const eventsRaw = Array.isArray(raw.events) ? raw.events : [];
 
   if (!objectsRaw) {
     throw new Error("Document is missing objects array.");
@@ -153,6 +193,7 @@ export function normalizeEditorDocument(raw: unknown): EditorDocument {
       height: asNumber(canvasRaw.height, 1200),
     },
     objects: objectsRaw.map(normalizeObject),
+    events: eventsRaw.map(normalizeEvent),
     view: {
       showDroneRanges: asBoolean(viewRaw.showDroneRanges, false),
       showClientDroneLinks: asBoolean(viewRaw.showClientDroneLinks, false),
@@ -161,6 +202,8 @@ export function normalizeEditorDocument(raw: unknown): EditorDocument {
       autoZoneRadius: asNumber(viewRaw.autoZoneRadius, 80),
       autoZoneIntensity: asNumber(viewRaw.autoZoneIntensity, 10),
       autoDemandZonesEnabled: asBoolean(viewRaw.autoDemandZonesEnabled, false),
+      snapToGrid: asBoolean(viewRaw.snapToGrid, false),
+      gridSize: asNumber(viewRaw.gridSize, 32),
     },
   };
 }

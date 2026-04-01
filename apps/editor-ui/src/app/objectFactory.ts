@@ -9,6 +9,10 @@ import type {
   TreeZoneObject,
   DemandZoneObject,
 } from "./editorStore";
+import {
+  normalizeDemandClass,
+  normalizeGatewayUplink,
+} from "../lib/editorOptions";
 
 function makeId(prefix: string) {
   return `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
@@ -40,7 +44,7 @@ export function createObjectFromTool(
         x,
         y,
         label: "Gateway",
-        uplink: "fiber",
+        uplink: normalizeGatewayUplink("fiber"),
       };
       return obj;
     }
@@ -52,7 +56,7 @@ export function createObjectFromTool(
         x,
         y,
         label: "Client",
-        demandClass: "standard",
+        demandClass: normalizeDemandClass("telemetry"),
       };
       return obj;
     }

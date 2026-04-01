@@ -1,4 +1,10 @@
 import { useEditorStore, type EditorObject } from "../../app/editorStore";
+import {
+  DEMAND_CLASS_OPTIONS,
+  GATEWAY_UPLINK_OPTIONS,
+  normalizeDemandClass,
+  normalizeGatewayUplink,
+} from "../../lib/editorOptions";
 
 function NumberInput({
   label,
@@ -41,6 +47,31 @@ function TextInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
+    </label>
+  );
+}
+
+function SelectInput({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: readonly string[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="editor-field">
+      <span>{label}</span>
+      <select value={value} onChange={(e) => onChange(e.target.value)}>
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
     </label>
   );
 }
@@ -145,21 +176,27 @@ export default function RightInspector() {
           )}
 
           {sharedGatewayObjects && (
-            <TextInput
+            <SelectInput
               label="Uplink"
-              value={sharedGatewayObjects[0].uplink}
+              value={normalizeGatewayUplink(sharedGatewayObjects[0].uplink)}
+              options={GATEWAY_UPLINK_OPTIONS}
               onChange={(value) =>
-                updateObjectsById(selectedObjectIds, () => ({ uplink: value }))
+                updateObjectsById(selectedObjectIds, () => ({
+                  uplink: normalizeGatewayUplink(value),
+                }))
               }
             />
           )}
 
           {sharedClientObjects && (
-            <TextInput
+            <SelectInput
               label="Demand Class"
-              value={sharedClientObjects[0].demandClass}
+              value={normalizeDemandClass(sharedClientObjects[0].demandClass)}
+              options={DEMAND_CLASS_OPTIONS}
               onChange={(value) =>
-                updateObjectsById(selectedObjectIds, () => ({ demandClass: value }))
+                updateObjectsById(selectedObjectIds, () => ({
+                  demandClass: normalizeDemandClass(value),
+                }))
               }
             />
           )}
@@ -304,19 +341,27 @@ export default function RightInspector() {
         )}
 
         {"uplink" in singleSelectedObject && (
-          <TextInput
+          <SelectInput
             label="Uplink"
-            value={singleSelectedObject.uplink}
-            onChange={(value) => updateObject(singleSelectedObject.id, { uplink: value })}
+            value={normalizeGatewayUplink(singleSelectedObject.uplink)}
+            options={GATEWAY_UPLINK_OPTIONS}
+            onChange={(value) =>
+              updateObject(singleSelectedObject.id, {
+                uplink: normalizeGatewayUplink(value),
+              })
+            }
           />
         )}
 
         {"demandClass" in singleSelectedObject && (
-          <TextInput
+          <SelectInput
             label="Demand Class"
-            value={singleSelectedObject.demandClass}
+            value={normalizeDemandClass(singleSelectedObject.demandClass)}
+            options={DEMAND_CLASS_OPTIONS}
             onChange={(value) =>
-              updateObject(singleSelectedObject.id, { demandClass: value })
+              updateObject(singleSelectedObject.id, {
+                demandClass: normalizeDemandClass(value),
+              })
             }
           />
         )}

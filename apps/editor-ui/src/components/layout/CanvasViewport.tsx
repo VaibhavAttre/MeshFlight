@@ -1,6 +1,7 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { createObjectFromTool } from "../../app/objectFactory";
+import { getGatewayRange } from "../../lib/editorOptions";
 import {
   computeAutoDemandZones,
   useEditorStore,
@@ -29,6 +30,15 @@ type SelectionBoxState =
       startY: number;
       currentX: number;
       currentY: number;
+    }
+  | null;
+
+type PanState =
+  | {
+      startPointerX: number;
+      startPointerY: number;
+      initialPanX: number;
+      initialPanY: number;
     }
   | null;
 
@@ -130,6 +140,10 @@ function intersectsSelectionBox(
   );
 }
 
+function makePairKey(a: string, b: string) {
+  return a < b ? `${a}|${b}` : `${b}|${a}`;
+}
+
 export default function CanvasViewport() {
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const suppressCanvasClickRef = useRef(false);
@@ -147,6 +161,10 @@ export default function CanvasViewport() {
   const autoZoneRadius = useEditorStore((s) => s.autoZoneRadius);
   const autoZoneIntensity = useEditorStore((s) => s.autoZoneIntensity);
   const autoDemandZonesEnabled = useEditorStore((s) => s.autoDemandZonesEnabled);
+  const snapToGrid = useEditorStore((s) => s.snapToGrid);
+  const gridSize = useEditorStore((s) => s.gridSize);
+  const canvasWidth = useEditorStore((s) => s.canvasWidth);
+  const canvasHeight = useEditorStore((s) => s.canvasHeight);
   const selectedObjectIds = useEditorStore((s) => s.selectedObjectIds);
   const setSelectedObjectId = useEditorStore((s) => s.setSelectedObjectId);
   const setSelectedObjectIds = useEditorStore((s) => s.setSelectedObjectIds);
@@ -155,8 +173,46 @@ export default function CanvasViewport() {
   const [dragState, setDragState] = useState<DragState>(null);
   const [resizeState, setResizeState] = useState<ResizeState>(null);
   const [selectionBox, setSelectionBox] = useState<SelectionBoxState>(null);
+  const [panState, setPanState] = useState<PanState>(null);
+  const [viewTransform, setViewTransform] = useState({
+    panX: 40,
+    panY: 40,
+    scale: 1,
+  });
+  const [isSpacePressed, setIsSpacePressed] = useState(false);
+
+  useEffect(() => {
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.code === "Space") {
+        setIsSpacePressed(true);
+      }
+    }
+
+    function handleKeyUp(event: KeyboardEvent) {
+      if (event.code === "Space") {
+        setIsSpacePressed(false);
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, []);
 
   function getCanvasCoordinates(clientX: number, clientY: number) {
+    if (!canvasRef.current) return null;
+    const rect = canvasRef.current.getBoundingClientRect();
+
+    return {
+      x: (clientX - rect.left - viewTransform.panX) / viewTransform.scale,
+      y: (clientY - rect.top - viewTransform.panY) / viewTransform.scale,
+    };
+  }
+
+  function getViewportCoordinates(clientX: number, clientY: number) {
     if (!canvasRef.current) return null;
     const rect = canvasRef.current.getBoundingClientRect();
 
@@ -168,6 +224,14 @@ export default function CanvasViewport() {
 
   function distance(ax: number, ay: number, bx: number, by: number) {
     return Math.sqrt((ax - bx) ** 2 + (ay - by) ** 2);
+  }
+
+  function snap(value: number) {
+    if (!snapToGrid) {
+      return value;
+    }
+
+    return Math.round(value / gridSize) * gridSize;
   }
 
   function createFlowLine(
@@ -207,7 +271,11 @@ export default function CanvasViewport() {
       return;
     }
 
-    const newObject = createObjectFromTool(activeTool, coords.x, coords.y);
+    const newObject = createObjectFromTool(
+      activeTool,
+      snap(coords.x),
+      snap(coords.y)
+    );
     if (!newObject) return;
 
     addObject(newObject);
@@ -216,6 +284,24 @@ export default function CanvasViewport() {
   }
 
   function handleCanvasMouseDown(event: React.MouseEvent<HTMLDivElement>) {
+    if (
+      event.button === 1 ||
+      event.button === 2 ||
+      (event.button === 0 && isSpacePressed)
+    ) {
+      const viewportCoords = getViewportCoordinates(event.clientX, event.clientY);
+      if (!viewportCoords) return;
+
+      event.preventDefault();
+      setPanState({
+        startPointerX: viewportCoords.x,
+        startPointerY: viewportCoords.y,
+        initialPanX: viewTransform.panX,
+        initialPanY: viewTransform.panY,
+      });
+      return;
+    }
+
     if (event.target !== event.currentTarget || activeTool !== "select") {
       return;
     }
@@ -279,6 +365,18 @@ export default function CanvasViewport() {
   }
 
   function handleMouseMove(event: React.MouseEvent<HTMLDivElement>) {
+    if (panState) {
+      const viewportCoords = getViewportCoordinates(event.clientX, event.clientY);
+      if (!viewportCoords) return;
+
+      setViewTransform((current) => ({
+        ...current,
+        panX: panState.initialPanX + (viewportCoords.x - panState.startPointerX),
+        panY: panState.initialPanY + (viewportCoords.y - panState.startPointerY),
+      }));
+      return;
+    }
+
     const coords = getCanvasCoordinates(event.clientX, event.clientY);
     if (!coords) return;
 
@@ -298,8 +396,8 @@ export default function CanvasViewport() {
       updateObjectsById(dragState.objectIds, (object) => {
         const initialPosition = dragState.initialPositions[object.id];
         return {
-          x: initialPosition.x + deltaX,
-          y: initialPosition.y + deltaY,
+          x: snap(initialPosition.x + deltaX),
+          y: snap(initialPosition.y + deltaY),
         };
       });
       return;
@@ -310,8 +408,8 @@ export default function CanvasViewport() {
       if (!object) return;
 
       if (resizeState.mode === "building-size" && object.type === "building") {
-        const nextWidth = Math.max(30, Math.abs(coords.x - object.x) * 2);
-        const nextHeight = Math.max(30, Math.abs(coords.y - object.y) * 2);
+        const nextWidth = snap(Math.max(30, Math.abs(coords.x - object.x) * 2));
+        const nextHeight = snap(Math.max(30, Math.abs(coords.y - object.y) * 2));
         updateObject(object.id, {
           width: Math.round(nextWidth),
           height: Math.round(nextHeight),
@@ -320,7 +418,9 @@ export default function CanvasViewport() {
       }
 
       if (resizeState.mode === "drone-range" && object.type === "drone") {
-        const nextRange = Math.max(20, distance(object.x, object.y, coords.x, coords.y));
+        const nextRange = snap(
+          Math.max(20, distance(object.x, object.y, coords.x, coords.y))
+        );
         updateObject(object.id, { radioRange: Math.round(nextRange) });
         return;
       }
@@ -329,13 +429,17 @@ export default function CanvasViewport() {
         resizeState.mode === "zone-radius" &&
         (object.type === "tree-zone" || object.type === "demand-zone")
       ) {
-        const nextRadius = Math.max(10, distance(object.x, object.y, coords.x, coords.y));
+        const nextRadius = snap(
+          Math.max(10, distance(object.x, object.y, coords.x, coords.y))
+        );
         updateObject(object.id, { radius: Math.round(nextRadius) });
         return;
       }
 
       if (resizeState.mode === "wall-length" && object.type === "wall") {
-        const nextLength = Math.max(20, coords.x - object.x + object.length / 2);
+        const nextLength = snap(
+          Math.max(20, coords.x - object.x + object.length / 2)
+        );
         updateObject(object.id, { length: Math.round(nextLength) });
       }
     }
@@ -359,10 +463,40 @@ export default function CanvasViewport() {
       setDragState(null);
       suppressCanvasClickRef.current = true;
     }
+    if (panState) {
+      setPanState(null);
+      suppressCanvasClickRef.current = true;
+    }
     if (resizeState) {
       setResizeState(null);
       suppressCanvasClickRef.current = true;
     }
+  }
+
+  function handleWheel(event: React.WheelEvent<HTMLDivElement>) {
+    event.preventDefault();
+
+    const viewportCoords = getViewportCoordinates(event.clientX, event.clientY);
+    if (!viewportCoords) {
+      return;
+    }
+
+    setViewTransform((current) => {
+      const zoomDelta = event.deltaY < 0 ? 1.1 : 0.9;
+      const nextScale = Math.min(2.5, Math.max(0.45, current.scale * zoomDelta));
+      const worldX = (viewportCoords.x - current.panX) / current.scale;
+      const worldY = (viewportCoords.y - current.panY) / current.scale;
+
+      return {
+        scale: nextScale,
+        panX: viewportCoords.x - worldX * nextScale,
+        panY: viewportCoords.y - worldY * nextScale,
+      };
+    });
+  }
+
+  function handleContextMenu(event: React.MouseEvent<HTMLDivElement>) {
+    event.preventDefault();
   }
 
   const autoDemandZones = computeAutoDemandZones({
@@ -389,19 +523,98 @@ export default function CanvasViewport() {
     (object): object is Extract<EditorObject, { type: "drone" }> =>
       object.type === "drone"
   );
+  const gateways = objects.filter(
+    (object): object is Extract<EditorObject, { type: "gateway" }> =>
+      object.type === "gateway"
+  );
   const clients = objects.filter(
     (object): object is Extract<EditorObject, { type: "client" }> =>
       object.type === "client"
   );
+  const reachableDroneIds = new Set<string>();
+  const directGatewayLinks: {
+    gateway: (typeof gateways)[number];
+    drone: (typeof drones)[number];
+  }[] = [];
+  const relayLinks: {
+    source: (typeof drones)[number];
+    target: (typeof drones)[number];
+  }[] = [];
+  const droneAdjacency = new Map<string, string[]>();
+  const queue: string[] = [];
+
+  for (const drone of drones) {
+    droneAdjacency.set(drone.id, []);
+  }
+
+  for (const gateway of gateways) {
+    const gatewayRange = getGatewayRange(gateway.uplink);
+
+    for (const drone of drones) {
+      if (
+        distance(gateway.x, gateway.y, drone.x, drone.y) <=
+        gatewayRange + drone.radioRange
+      ) {
+        directGatewayLinks.push({ gateway, drone });
+        if (!reachableDroneIds.has(drone.id)) {
+          reachableDroneIds.add(drone.id);
+          queue.push(drone.id);
+        }
+      }
+    }
+  }
+
+  for (let index = 0; index < drones.length; index += 1) {
+    for (let compareIndex = index + 1; compareIndex < drones.length; compareIndex += 1) {
+      const source = drones[index];
+      const target = drones[compareIndex];
+      const circlesOverlap =
+        distance(source.x, source.y, target.x, target.y) <=
+        source.radioRange + target.radioRange;
+
+      if (circlesOverlap) {
+        droneAdjacency.get(source.id)?.push(target.id);
+        droneAdjacency.get(target.id)?.push(source.id);
+        relayLinks.push({ source, target });
+      }
+    }
+  }
+
+  while (queue.length > 0) {
+    const currentDroneId = queue.shift()!;
+    const neighborIds = droneAdjacency.get(currentDroneId) ?? [];
+
+    for (const neighborId of neighborIds) {
+      if (reachableDroneIds.has(neighborId)) {
+        continue;
+      }
+
+      reachableDroneIds.add(neighborId);
+      queue.push(neighborId);
+    }
+  }
 
   const visibleLinks = showClientDroneLinks
     ? clients.flatMap((client) =>
         drones
           .filter(
             (drone) =>
+              reachableDroneIds.has(drone.id) &&
               distance(client.x, client.y, drone.x, drone.y) <= drone.radioRange
           )
           .map((drone) => ({ client, drone }))
+      )
+    : [];
+  const connectedClientIds = new Set(
+    visibleLinks.map(({ client }) => client.id)
+  );
+  const visibleGatewayLinks = showClientDroneLinks
+    ? directGatewayLinks
+    : [];
+  const visibleRelayLinks = showClientDroneLinks
+    ? relayLinks.filter(
+        ({ source, target }) =>
+          reachableDroneIds.has(source.id) && reachableDroneIds.has(target.id)
       )
     : [];
 
@@ -422,83 +635,190 @@ export default function CanvasViewport() {
         onMouseMove={handleMouseMove}
         onMouseUp={endInteractions}
         onMouseLeave={endInteractions}
+        onWheel={handleWheel}
+        onContextMenu={handleContextMenu}
       >
-        <div className="grid-overlay" />
-
-        {visibleLinks.length > 0 && (
-          <svg className="link-overlay" aria-hidden="true">
-            {visibleLinks.map(({ client, drone }) => {
-              const forwardLine = createFlowLine(
-                client.x,
-                client.y,
-                drone.x,
-                drone.y,
-                -3
-              );
-              const reverseLine = createFlowLine(
-                client.x,
-                client.y,
-                drone.x,
-                drone.y,
-                3
-              );
-
-              return (
-                <g key={`${client.id}-${drone.id}`}>
-                  <line
-                    className="flow-line flow-line--forward"
-                    x1={forwardLine.x1}
-                    y1={forwardLine.y1}
-                    x2={forwardLine.x2}
-                    y2={forwardLine.y2}
-                  />
-                  <line
-                    className="flow-line flow-line--reverse"
-                    x1={reverseLine.x1}
-                    y1={reverseLine.y1}
-                    x2={reverseLine.x2}
-                    y2={reverseLine.y2}
-                  />
-                </g>
-              );
-            })}
-          </svg>
-        )}
-
-        {selectionBox && (
+        <div
+          className="canvas-world"
+          style={{
+            width: canvasWidth,
+            height: canvasHeight,
+            transform: `translate(${viewTransform.panX}px, ${viewTransform.panY}px) scale(${viewTransform.scale})`,
+          }}
+        >
           <div
-            className="selection-box"
+            className="grid-overlay"
             style={{
-              left: Math.min(selectionBox.startX, selectionBox.currentX),
-              top: Math.min(selectionBox.startY, selectionBox.currentY),
-              width: Math.abs(selectionBox.currentX - selectionBox.startX),
-              height: Math.abs(selectionBox.currentY - selectionBox.startY),
+              backgroundSize: `${gridSize}px ${gridSize}px`,
             }}
           />
-        )}
 
-        {autoDemandZones.map((object) => (
-          <div key={object.id}>
-            <div
-              style={{
-                position: "absolute",
-                left: object.x,
-                top: object.y,
-                transform: "translate(-50%, -50%)",
-                width: object.radius * 2,
-                height: object.radius * 2,
-                borderRadius: "50%",
-                background: `${object.color ?? "#ef4444"}22`,
-                outline: `1.5px dashed ${object.color ?? "#ef4444"}99`,
-                pointerEvents: "none",
-              }}
+          {visibleLinks.length > 0 && (
+            <svg
+              className="link-overlay"
+              aria-hidden="true"
+              viewBox={`0 0 ${canvasWidth} ${canvasHeight}`}
             >
-              <ObjectLabel text={object.label} />
-            </div>
-          </div>
-        ))}
+              {visibleLinks.map(({ client, drone }) => {
+                const forwardLine = createFlowLine(
+                  client.x,
+                  client.y,
+                  drone.x,
+                  drone.y,
+                  -3
+                );
+                const reverseLine = createFlowLine(
+                  client.x,
+                  client.y,
+                  drone.x,
+                  drone.y,
+                  3
+                );
 
-        {objects.map((object) => {
+                return (
+                  <g key={`${client.id}-${drone.id}`}>
+                    <line
+                      className="flow-line flow-line--forward"
+                      x1={forwardLine.x1}
+                      y1={forwardLine.y1}
+                      x2={forwardLine.x2}
+                      y2={forwardLine.y2}
+                    />
+                    <line
+                      className="flow-line flow-line--reverse"
+                      x1={reverseLine.x1}
+                      y1={reverseLine.y1}
+                      x2={reverseLine.x2}
+                      y2={reverseLine.y2}
+                    />
+                  </g>
+                );
+              })}
+            </svg>
+          )}
+
+          {visibleGatewayLinks.length > 0 && (
+            <svg
+              className="link-overlay"
+              aria-hidden="true"
+              viewBox={`0 0 ${canvasWidth} ${canvasHeight}`}
+            >
+              {visibleGatewayLinks.map(({ gateway, drone }) => {
+                const forwardLine = createFlowLine(
+                  gateway.x,
+                  gateway.y,
+                  drone.x,
+                  drone.y,
+                  -2.5
+                );
+                const reverseLine = createFlowLine(
+                  gateway.x,
+                  gateway.y,
+                  drone.x,
+                  drone.y,
+                  2.5
+                );
+
+                return (
+                  <g key={`${gateway.id}-${drone.id}`}>
+                    <line
+                      className="gateway-link gateway-link--forward"
+                      x1={forwardLine.x1}
+                      y1={forwardLine.y1}
+                      x2={forwardLine.x2}
+                      y2={forwardLine.y2}
+                    />
+                    <line
+                      className="gateway-link gateway-link--reverse"
+                      x1={reverseLine.x1}
+                      y1={reverseLine.y1}
+                      x2={reverseLine.x2}
+                      y2={reverseLine.y2}
+                    />
+                  </g>
+                );
+              })}
+            </svg>
+          )}
+
+          {visibleRelayLinks.length > 0 && (
+            <svg
+              className="link-overlay"
+              aria-hidden="true"
+              viewBox={`0 0 ${canvasWidth} ${canvasHeight}`}
+            >
+              {visibleRelayLinks.map(({ source, target }) => {
+                const forwardLine = createFlowLine(
+                  source.x,
+                  source.y,
+                  target.x,
+                  target.y,
+                  -2
+                );
+                const reverseLine = createFlowLine(
+                  source.x,
+                  source.y,
+                  target.x,
+                  target.y,
+                  2
+                );
+
+                return (
+                  <g key={makePairKey(source.id, target.id)}>
+                    <line
+                      className="relay-link relay-link--forward"
+                      x1={forwardLine.x1}
+                      y1={forwardLine.y1}
+                      x2={forwardLine.x2}
+                      y2={forwardLine.y2}
+                    />
+                    <line
+                      className="relay-link relay-link--reverse"
+                      x1={reverseLine.x1}
+                      y1={reverseLine.y1}
+                      x2={reverseLine.x2}
+                      y2={reverseLine.y2}
+                    />
+                  </g>
+                );
+              })}
+            </svg>
+          )}
+
+          {selectionBox && (
+            <div
+              className="selection-box"
+              style={{
+                left: Math.min(selectionBox.startX, selectionBox.currentX),
+                top: Math.min(selectionBox.startY, selectionBox.currentY),
+                width: Math.abs(selectionBox.currentX - selectionBox.startX),
+                height: Math.abs(selectionBox.currentY - selectionBox.startY),
+              }}
+            />
+          )}
+
+          {autoDemandZones.map((object) => (
+            <div key={object.id}>
+              <div
+                style={{
+                  position: "absolute",
+                  left: object.x,
+                  top: object.y,
+                  transform: "translate(-50%, -50%)",
+                  width: object.radius * 2,
+                  height: object.radius * 2,
+                  borderRadius: "50%",
+                  background: `${object.color ?? "#ef4444"}22`,
+                  outline: `1.5px dashed ${object.color ?? "#ef4444"}99`,
+                  pointerEvents: "none",
+                }}
+              >
+                <ObjectLabel text={object.label} />
+              </div>
+            </div>
+          ))}
+
+          {objects.map((object) => {
           const isSelected = selectedObjectIds.includes(object.id);
           const isSingleSelected = selectedObject?.id === object.id;
 
@@ -555,7 +875,10 @@ export default function CanvasViewport() {
                       width: 22,
                       height: 22,
                       borderRadius: "50%",
-                      background: "#38bdf8",
+                      background: reachableDroneIds.has(object.id)
+                        ? "#38bdf8"
+                        : "rgba(56, 189, 248, 0.34)",
+                      opacity: reachableDroneIds.has(object.id) ? 1 : 0.58,
                     }}
                   >
                     <ObjectLabel text={object.label} />
@@ -565,17 +888,37 @@ export default function CanvasViewport() {
 
             case "gateway":
               return (
-                <div
-                  {...sharedProps}
-                  style={{
-                    ...commonStyle,
-                    width: 26,
-                    height: 26,
-                    borderRadius: 6,
-                    background: "#f59e0b",
-                  }}
-                >
-                  <ObjectLabel text={object.label} />
+                <div key={object.id}>
+                  <div
+                    className={`gateway-visual ${isSelected ? "is-selected" : ""}`}
+                    style={{
+                      left: object.x,
+                      top: object.y,
+                    }}
+                    aria-hidden="true"
+                  >
+                    <div className="gateway-visual__ring gateway-visual__ring--outer" />
+                    <div className="gateway-visual__ring gateway-visual__ring--inner" />
+                    <div className="gateway-visual__ray gateway-visual__ray--top" />
+                    <div className="gateway-visual__ray gateway-visual__ray--right" />
+                    <div className="gateway-visual__ray gateway-visual__ray--bottom" />
+                    <div className="gateway-visual__ray gateway-visual__ray--left" />
+                  </div>
+
+                  <div
+                    {...sharedProps}
+                    style={{
+                      ...commonStyle,
+                      width: 28,
+                      height: 28,
+                      borderRadius: 8,
+                      background:
+                        "linear-gradient(180deg, rgba(251, 191, 36, 0.96), rgba(217, 119, 6, 0.96))",
+                    }}
+                  >
+                    <div className="gateway-core" />
+                    <ObjectLabel text={object.label} />
+                  </div>
                 </div>
               );
 
@@ -588,7 +931,12 @@ export default function CanvasViewport() {
                     width: 16,
                     height: 16,
                     borderRadius: "50%",
-                    background: clientZoneColorById.get(object.id) ?? "#a78bfa",
+                    background:
+                      clientZoneColorById.get(object.id) ??
+                      (connectedClientIds.has(object.id)
+                        ? "#a78bfa"
+                        : "rgba(167, 139, 250, 0.34)"),
+                    opacity: connectedClientIds.has(object.id) ? 1 : 0.56,
                   }}
                 >
                   <ObjectLabel text={object.label} />
@@ -737,7 +1085,8 @@ export default function CanvasViewport() {
             default:
               return null;
           }
-        })}
+          })}
+        </div>
 
         {objects.length === 0 && (
           <div className="canvas-placeholder">
@@ -753,6 +1102,12 @@ export default function CanvasViewport() {
               : `Selected: ${selectedObjectIds.length} objects`}
           </div>
         )}
+
+        <div className="canvas-viewport-readout">
+          Zoom {Math.round(viewTransform.scale * 100)}%
+          {snapToGrid ? ` | Snap ${gridSize}` : ""}
+          {" | Pan: right-drag"}
+        </div>
       </div>
     </main>
   );

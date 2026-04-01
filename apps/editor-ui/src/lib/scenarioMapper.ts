@@ -1,5 +1,12 @@
 import type { EditorDocument } from "../app/editorDocument";
 import { createEmptyEditorDocument } from "../app/editorDocument";
+import {
+  getGatewayCapacityMbps,
+  getGatewayRange,
+  normalizeChaosEventType,
+  normalizeDemandClass,
+  normalizeGatewayUplink,
+} from "./editorOptions";
 
 type Point2D = {
   x: number;
@@ -110,6 +117,15 @@ type DemandZone = {
   priority: number;
 };
 
+type ChaosEvent = {
+  id: string;
+  event_type: "node_failure" | "obstacle_appearance" | "interference_spike" | "demand_burst";
+  target_entity_id: string;
+  trigger_time_s: number;
+  duration_s: number;
+  intensity: number | null;
+};
+
 export type ScenarioSource = {
   metadata: ScenarioMetadata;
   map: MapConfig;
@@ -118,7 +134,7 @@ export type ScenarioSource = {
   demand_zones: DemandZone[];
   traffic_classes: unknown[];
   scheduled_traffic: unknown[];
-  chaos_events: unknown[];
+  chaos_events: ChaosEvent[];
 };
 
 function slugifyScenarioId(name: string) {
@@ -137,20 +153,6 @@ function makeTimestamp(value: string | null | undefined) {
 
 function clampPriority(value: number) {
   return Math.max(1, Math.min(10, Math.round(value || 1)));
-}
-
-function makeGatewayCapacity(uplink: string) {
-  switch (uplink.trim().toLowerCase()) {
-    case "satellite":
-      return 75;
-    case "cellular":
-      return 120;
-    case "microwave":
-      return 180;
-    case "fiber":
-    default:
-      return 250;
-  }
 }
 
 function findTagValue(tags: string[] | undefined, prefix: string) {
@@ -185,6 +187,14 @@ export function editorDocumentToScenarioSource(
   const entities: ScenarioEntity[] = [];
   const obstacles: ScenarioObstacle[] = [];
   const demand_zones: DemandZone[] = [];
+  const chaos_events: ChaosEvent[] = doc.events.map((event) => ({
+    id: event.id,
+    event_type: normalizeChaosEventType(event.eventType),
+    target_entity_id: event.targetEntityId,
+    trigger_time_s: Math.max(0, event.triggerTimeS),
+    duration_s: Math.max(0.1, event.durationS),
+    intensity: event.intensity,
+  }));
 
   for (const obj of doc.objects) {
     switch (obj.type) {
@@ -208,9 +218,9 @@ export function editorDocumentToScenarioSource(
           type: "gateway",
           label: obj.label,
           position: { x: obj.x, y: obj.y },
-          tags: [`editor:uplink=${obj.uplink}`],
-          uplink_capacity_mbps: makeGatewayCapacity(obj.uplink),
-          comms_range_m: 240,
+          tags: [`editor:uplink=${normalizeGatewayUplink(obj.uplink)}`],
+          uplink_capacity_mbps: getGatewayCapacityMbps(obj.uplink),
+          comms_range_m: getGatewayRange(obj.uplink),
         });
         break;
 
@@ -221,7 +231,7 @@ export function editorDocumentToScenarioSource(
           label: obj.label,
           position: { x: obj.x, y: obj.y },
           tags: [],
-          demand_profile: obj.demandClass,
+          demand_profile: normalizeDemandClass(obj.demandClass),
         });
         break;
 
@@ -307,7 +317,7 @@ export function editorDocumentToScenarioSource(
     demand_zones,
     traffic_classes: [],
     scheduled_traffic: [],
-    chaos_events: [],
+    chaos_events,
   };
 }
 
@@ -337,7 +347,9 @@ export function scenarioSourceToEditorDocument(
           x: entity.position.x,
           y: entity.position.y,
           label: entity.label ?? "Gateway",
-          uplink: findTagValue(entity.tags, "editor:uplink=") ?? "fiber",
+          uplink: normalizeGatewayUplink(
+            findTagValue(entity.tags, "editor:uplink=") ?? "fiber"
+          ),
         });
         break;
 
@@ -348,7 +360,7 @@ export function scenarioSourceToEditorDocument(
           x: entity.position.x,
           y: entity.position.y,
           label: entity.label ?? "Client",
-          demandClass: entity.demand_profile,
+          demandClass: normalizeDemandClass(entity.demand_profile),
         });
         break;
     }
@@ -420,6 +432,14 @@ export function scenarioSourceToEditorDocument(
       height: scenario.map.height,
     },
     objects,
+    events: scenario.chaos_events.map((event) => ({
+      id: event.id,
+      eventType: normalizeChaosEventType(event.event_type),
+      targetEntityId: event.target_entity_id,
+      triggerTimeS: event.trigger_time_s,
+      durationS: event.duration_s,
+      intensity: event.intensity ?? 1,
+    })),
     view: {
       ...empty.view,
     },
