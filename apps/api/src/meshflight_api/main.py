@@ -9,11 +9,10 @@ from pydantic import BaseModel
 from meshflight_schema import ScenarioSource
 
 from .storage import (
-    compile_scenario_source,
+    compile_saved_scenario,
     ensure_storage_dirs,
     list_scenarios,
     load_scenario_source,
-    save_compiled_scenario,
     save_scenario_source,
     scenario_source_path,
 )
@@ -34,7 +33,9 @@ class SaveScenarioResponse(BaseModel):
 class CompileScenarioResponse(BaseModel):
     scenario_id: str
     source_path: str
+    output_dir: str
     compiled_path: str
+    report_path: str
 
 
 @asynccontextmanager
@@ -83,19 +84,11 @@ def post_scenario(scenario: ScenarioSource) -> SaveScenarioResponse:
         path=str(path),
     )
 
-
 @app.post("/api/scenarios/{scenario_id}/compile", response_model=CompileScenarioResponse)
 def post_compile_scenario(scenario_id: str) -> CompileScenarioResponse:
     source_path = scenario_source_path(scenario_id)
     if not source_path.exists():
         raise HTTPException(status_code=404, detail="Scenario not found")
 
-    scenario = load_scenario_source(scenario_id)
-    compiled = compile_scenario_source(scenario)
-    compiled_path = save_compiled_scenario(compiled)
-
-    return CompileScenarioResponse(
-        scenario_id=scenario_id,
-        source_path=str(source_path),
-        compiled_path=str(compiled_path),
-    )
+    result = compile_saved_scenario(scenario_id)
+    return CompileScenarioResponse.model_validate(result)

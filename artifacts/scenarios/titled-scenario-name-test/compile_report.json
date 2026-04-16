@@ -1,0 +1,30 @@
+{
+  "scenario_id": "titled-scenario-name-test",
+  "source_path": "C:\\Users\\vaibh\\OneDrive\\Desktop\\MeshFlight\\artifacts\\scenarios\\source\\titled-scenario-name-test.scenario.json",
+  "output_dir": "artifacts\\scenarios\\titled-scenario-name-test",
+  "compiler_version": "0.1.0",
+  "generated_at": "2026-04-16T21:26:43Z",
+  "counts": {
+    "entities": 3,
+    "normalized_entities": 3,
+    "obstacles": 1,
+    "obstacle_index_entries": 1,
+    "candidate_graph_edges": 3,
+    "waypoint_candidates": 9,
+    "mobility_constraints": 1,
+    "runtime_schedule_entries": 0,
+    "traffic_classes": 0,
+    "scheduled_traffic_events": 0,
+    "chaos_events": 0
+  },
+  "config": {
+    "grid_cell_size_m": 50.0,
+    "waypoint_directions": 8,
+    "los_block_penalty_multiplier": 1.0,
+    "blocks_flight_penalty_bonus": 5.0,
+    "interference_penalty_scale": 10.0,
+    "include_client_client_edges": false
+  },
+  "source_hash": "9bdb854b8d406253100f0239b14f20c118513af0e155b9ab8cd30c8ebfd154f0",
+  "config_hash": "77e70ea0dfd6e7703003a96edecae373efabffdd01e424b7e32a23a931e08b2f"
+}
