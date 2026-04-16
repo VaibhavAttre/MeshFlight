@@ -1,0 +1,8 @@
+{
+  "python.defaultInterpreterPath": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
+  "python.analysis.extraPaths": [
+    "${workspaceFolder}\\packages\\schema\\src",
+    "${workspaceFolder}\\packages\\runtime_contracts\\src",
+    "${workspaceFolder}\\apps\\api\\src"
+  ]
+}

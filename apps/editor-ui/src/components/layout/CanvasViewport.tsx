@@ -280,7 +280,7 @@ export default function CanvasViewport() {
 
     addObject(newObject);
     setSelectedObjectId(newObject.id);
-    setActiveTool("select");
+    setActiveTool("select"); //to switch back to select tool after placing an object
   }
 
   function handleCanvasMouseDown(event: React.MouseEvent<HTMLDivElement>) {

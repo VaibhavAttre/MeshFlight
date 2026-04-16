@@ -7,6 +7,7 @@
     "packages/*"
   ],
   "scripts": {
+    "dev:api": "set PYTHONPATH=apps/api/src;packages/schema/src;packages/runtime_contracts/src&& .venv\\Scripts\\python -m uvicorn meshflight_api.main:app --app-dir apps/api/src --reload",
     "dev:ui": "npm run dev --workspace @meshflight/editor-ui",
     "build:ui": "npm run build --workspace @meshflight/editor-ui",
     "typecheck:ui": "npm run typecheck --workspace @meshflight/editor-ui",

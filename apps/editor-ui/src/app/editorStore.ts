@@ -278,7 +278,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   activeTool: "select",
   setActiveTool: (tool) => set({ activeTool: tool }),
 
-  documentName: "untitled-scenario",
+  documentName: "titled-scenario name test",
   setDocumentName: (name) => set({ documentName: name }),
 
   showDroneRanges: false,

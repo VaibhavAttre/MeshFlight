@@ -1,0 +1,13 @@
+{
+  "include": [
+    "apps",
+    "services",
+    "packages",
+    "tests"
+  ],
+  "extraPaths": [
+    "packages/schema/src",
+    "packages/runtime_contracts/src",
+    "apps/api/src"
+  ]
+}
