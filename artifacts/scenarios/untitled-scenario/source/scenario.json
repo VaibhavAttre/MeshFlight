@@ -1,0 +1,49 @@
+{
+  "metadata": {
+    "scenario_id": "untitled-scenario",
+    "schema_version": "0.1.0",
+    "title": "untitled-scenario",
+    "description": "",
+    "seed": 0,
+    "created_at": "2026-04-17T18:09:38.466Z",
+    "authoring_version": "editor-ui"
+  },
+  "map": {
+    "width": 2000.0,
+    "height": 1200.0,
+    "grid_resolution": 20.0,
+    "unit_scale_meters": 1.0,
+    "origin": {
+      "x": 0.0,
+      "y": 0.0
+    },
+    "layers": [
+      {
+        "id": "base",
+        "name": "Base",
+        "visible": true
+      }
+    ]
+  },
+  "entities": [
+    {
+      "id": "gateway-15f28a49",
+      "type": "gateway",
+      "label": "Gateway",
+      "position": {
+        "x": 307.0,
+        "y": 134.0
+      },
+      "tags": [
+        "editor:uplink=fiber"
+      ],
+      "uplink_capacity_mbps": 250.0,
+      "comms_range_m": 260.0
+    }
+  ],
+  "obstacles": [],
+  "demand_zones": [],
+  "traffic_classes": [],
+  "scheduled_traffic": [],
+  "chaos_events": []
+}

@@ -144,6 +144,9 @@ type EditorStore = {
   updateEvent: (id: string, patch: Partial<EditorChaosEvent>) => void;
   removeEvent: (id: string) => void;
 
+  currentScenarioId: string | null;
+  setCurrentScenarioId: (scenarioId: string | null) => void;
+
   documentName: string;
   setDocumentName: (name: string) => void;
 
@@ -278,7 +281,10 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
   activeTool: "select",
   setActiveTool: (tool) => set({ activeTool: tool }),
 
-  documentName: "titled-scenario name test",
+  currentScenarioId: null,
+  setCurrentScenarioId: (scenarioId) => set({ currentScenarioId: scenarioId }),
+
+  documentName: createEmptyEditorDocument().name,
   setDocumentName: (name) => set({ documentName: name }),
 
   showDroneRanges: false,
@@ -460,6 +466,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       canvasWidth: empty.canvas.width,
       canvasHeight: empty.canvas.height,
       events: empty.events,
+      currentScenarioId: null,
     });
   },
 
@@ -483,6 +490,7 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       canvasWidth: doc.canvas.width,
       canvasHeight: doc.canvas.height,
       events: doc.events,
+      currentScenarioId: null,
     });
   },
 

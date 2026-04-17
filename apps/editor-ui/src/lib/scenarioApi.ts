@@ -41,7 +41,7 @@ export async function saveScenarioToBackend(scenario: ScenarioSource) {
     body: JSON.stringify(scenario),
   });
 
-  return parseJsonResponse<{ scenario_id: string; path: string }>(response);
+  return parseJsonResponse<{ scenario_id: string; title: string; path: string }>(response);
 }
 
 export async function compileScenarioOnBackend(scenarioId: string) {
@@ -52,6 +52,8 @@ export async function compileScenarioOnBackend(scenarioId: string) {
   return parseJsonResponse<{
     scenario_id: string;
     source_path: string;
+    output_dir: string;
     compiled_path: string;
+    report_path: string;
   }>(response);
 }

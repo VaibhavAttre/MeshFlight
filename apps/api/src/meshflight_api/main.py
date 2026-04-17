@@ -27,6 +27,7 @@ class ScenarioSummary(BaseModel):
 
 class SaveScenarioResponse(BaseModel):
     scenario_id: str
+    title: str
     path: str
 
 
@@ -78,9 +79,10 @@ def get_scenario(scenario_id: str) -> ScenarioSource:
 
 @app.post("/api/scenarios", response_model=SaveScenarioResponse)
 def post_scenario(scenario: ScenarioSource) -> SaveScenarioResponse:
-    path = save_scenario_source(scenario)
+    saved_scenario, path = save_scenario_source(scenario)
     return SaveScenarioResponse(
-        scenario_id=scenario.metadata.scenario_id,
+        scenario_id=saved_scenario.metadata.scenario_id,
+        title=saved_scenario.metadata.title,
         path=str(path),
     )
 

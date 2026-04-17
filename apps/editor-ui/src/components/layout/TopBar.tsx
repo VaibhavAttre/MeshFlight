@@ -26,6 +26,8 @@ export default function TopBar() {
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
 
   const documentName = useEditorStore((s) => s.documentName);
+  const currentScenarioId = useEditorStore((s) => s.currentScenarioId);
+  const setCurrentScenarioId = useEditorStore((s) => s.setCurrentScenarioId);
 
   const showDroneRanges = useEditorStore((s) => s.showDroneRanges);
   const toggleDroneRanges = useEditorStore((s) => s.toggleDroneRanges);
@@ -86,17 +88,30 @@ export default function TopBar() {
 
   function handleNew() {
     resetDocument();
+    setCurrentScenarioId(null);
+  }
+
+  function buildScenarioForBackend() {
+    const doc = exportToDocument();
+    const scenario = editorDocumentToScenarioSource(doc);
+
+    if (currentScenarioId) {
+      scenario.metadata.scenario_id = currentScenarioId;
+    }
+
+    return { doc, scenario };
   }
 
   async function handleSave() {
-    const doc = exportToDocument();
-    const scenario = editorDocumentToScenarioSource(doc);
+    const { scenario } = buildScenarioForBackend();
 
     try {
       setIsBusy(true);
       const result = await saveScenarioToBackend(scenario);
+      setDocumentName(result.title);
+      setCurrentScenarioId(result.scenario_id);
       await refreshSavedScenarios(result.scenario_id);
-      window.alert(`Saved scenario to app storage as ${result.scenario_id}.`);
+      window.alert(`Saved scenario to app storage as ${result.title}.`);
     } catch (error) {
       console.error(error);
       window.alert("Could not save that scenario to backend storage.");
@@ -123,6 +138,32 @@ export default function TopBar() {
       const scenario = await loadSavedScenario(selectedScenarioId);
       const doc = scenarioSourceToEditorDocument(scenario);
       replaceFromDocument(doc);
+      setCurrentScenarioId(scenario.metadata.scenario_id);
+    } catch (error) {
+      console.error(error);
+      window.alert("Could not load that saved scenario.");
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
+  async function handleSavedScenarioChange(
+    event: React.ChangeEvent<HTMLSelectElement>
+  ) {
+    const scenarioId = event.target.value;
+    setSelectedScenarioId(scenarioId);
+
+    if (!scenarioId) {
+      setCurrentScenarioId(null);
+      return;
+    }
+
+    try {
+      setIsBusy(true);
+      const scenario = await loadSavedScenario(scenarioId);
+      const doc = scenarioSourceToEditorDocument(scenario);
+      replaceFromDocument(doc);
+      setCurrentScenarioId(scenario.metadata.scenario_id);
     } catch (error) {
       console.error(error);
       window.alert("Could not load that saved scenario.");
@@ -132,12 +173,13 @@ export default function TopBar() {
   }
 
   async function handleCompile() {
-    const doc = exportToDocument();
-    const scenario = editorDocumentToScenarioSource(doc);
+    const { scenario } = buildScenarioForBackend();
 
     try {
       setIsBusy(true);
       const saveResult = await saveScenarioToBackend(scenario);
+      setDocumentName(saveResult.title);
+      setCurrentScenarioId(saveResult.scenario_id);
       await refreshSavedScenarios(saveResult.scenario_id);
       const compileResult = await compileScenarioOnBackend(saveResult.scenario_id);
       window.alert(
@@ -161,6 +203,16 @@ export default function TopBar() {
       const raw = await readScenarioFile(file);
       const doc = scenarioSourceToEditorDocument(raw as never);
       replaceFromDocument(doc);
+      if (
+        typeof raw === "object" &&
+        raw !== null &&
+        "metadata" in raw &&
+        typeof (raw as { metadata?: { scenario_id?: unknown } }).metadata?.scenario_id === "string"
+      ) {
+        setCurrentScenarioId((raw as { metadata: { scenario_id: string } }).metadata.scenario_id);
+      } else {
+        setCurrentScenarioId(null);
+      }
       setIsMoreMenuOpen(false);
     } catch (error) {
       console.error(error);
@@ -189,10 +241,11 @@ export default function TopBar() {
         <select
           className="topbar-name-input"
           value={selectedScenarioId}
-          onChange={(event) => setSelectedScenarioId(event.target.value)}
+          onChange={handleSavedScenarioChange}
           disabled={isBusy}
+          aria-label="Open saved scenario"
         >
-          <option value="">Saved scenarios</option>
+          <option value="">Open saved scenario...</option>
           {savedScenarios.map((scenario) => (
             <option key={scenario.scenario_id} value={scenario.scenario_id}>
               {scenario.title}
@@ -237,6 +290,7 @@ export default function TopBar() {
           type="button"
           onClick={handleLoadSavedScenario}
           disabled={isBusy || !selectedScenario}
+          title="Reload the currently selected saved scenario"
         >
           Load
         </button>
