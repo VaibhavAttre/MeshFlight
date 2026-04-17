@@ -5,7 +5,7 @@
     "title": "untitled-scenario",
     "description": "",
     "seed": 0,
-    "created_at": "2026-04-17T18:09:38.466Z",
+    "created_at": "2026-04-17T18:10:53.754Z",
     "authoring_version": "editor-ui"
   },
   "map": {
@@ -25,24 +25,20 @@
       }
     ]
   },
-  "entities": [
+  "entities": [],
+  "obstacles": [],
+  "demand_zones": [
     {
-      "id": "gateway-15f28a49",
-      "type": "gateway",
-      "label": "Gateway",
-      "position": {
-        "x": 307.0,
-        "y": 134.0
+      "id": "demand-b84e7f5d",
+      "label": "Demand Zone",
+      "center": {
+        "x": 470.0,
+        "y": 208.0
       },
-      "tags": [
-        "editor:uplink=fiber"
-      ],
-      "uplink_capacity_mbps": 250.0,
-      "comms_range_m": 260.0
+      "radius_m": 70.0,
+      "priority": 10
     }
   ],
-  "obstacles": [],
-  "demand_zones": [],
   "traffic_classes": [],
   "scheduled_traffic": [],
   "chaos_events": []

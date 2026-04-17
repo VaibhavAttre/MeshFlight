@@ -1,30 +1,41 @@
 # MeshFlight
 
-Phase 0 scaffold for the MeshFlight monorepo.
+MeshFlight is a Phase 0 monorepo for scenario authoring, schema validation, compilation, and early control-plane workflows for a self-healing aerial mesh simulation project.
 
-This repository is set up around the Phase 0 plan:
-- monorepo layout for apps, services, packages, artifacts, docs, and tests
-- frontend workspace for the editor UI
-- backend Python environment for API, compiler, simulator, and shared schema work
-- placeholder docs and runbooks so architecture and contracts can be captured as they stabilize
+Current repo focus:
+- `0A` local setup and repo health
+- `0B` shared contracts, fixtures, and validation
+- `0C` editor MVP
+- `0D` compiler MVP
+- partial `0F` save/load/compile API flows
 
-## Phase 0 focus
+## Working Local Flows
 
-This scaffold is intentionally infrastructure-first. It does not include MeshFlight feature logic yet.
+- Frontend dev: `npm run dev:ui`
+- Backend dev: `npm run dev:api`
+- UI typecheck: `npm run typecheck:ui`
+- UI build: `npm run build:ui`
+- Python tests: `.venv\Scripts\python -m pytest -q`
+- Python lint: `.venv\Scripts\python -m ruff check .`
 
-## Planned local workflows
+## Repo Layout
 
-- Frontend: `cmd /c npm run dev --workspace @meshflight/editor-ui`
-- Backend: `.venv\\Scripts\\python -m uvicorn apps.api.main:app --reload`
-- Python checks: `.venv\\Scripts\\python -m pytest`
-- Python lint: `.venv\\Scripts\\python -m ruff check .`
+- `apps/editor-ui` - React + TypeScript editor UI for scenario authoring
+- `apps/api` - FastAPI control-plane shell for save/load/compile actions
+- `services/scenario_compiler` - real scenario compiler service
+- `packages/schema` - Pydantic source/compiled/runtime data contracts
+- `packages/runtime_contracts` - runtime event contracts
+- `artifacts/scenarios` - backend-managed saved scenario bundles and compiled outputs
+- `tests/fixtures/scenarios` - canonical authored scenario fixtures for schema/compiler tests
+- `tests/schema` - schema contract tests
+- `tests/compiler` - compiler-focused tests
 
-## Structure
+## Current Artifact Convention
 
-- `apps/editor-ui` - React + TypeScript + Vite workspace
-- `apps/api` - FastAPI entrypoint and control-plane shell
-- `services` - compiler, simulator, replay, and baseline policy modules
-- `packages` - neutral shared contracts and generated types
-- `artifacts` - saved scenarios, runs, and reports
-- `docs` - architecture notes, API docs, and runbooks
-- `tests` - schema, compiler, sim, API, and e2e test areas
+Each saved scenario lives in its own bundle:
+
+- `artifacts/scenarios/<scenario-id>/source/scenario.json`
+- `artifacts/scenarios/<scenario-id>/compiled/compiled.json`
+- `artifacts/scenarios/<scenario-id>/compiled/compile_report.json`
+
+New saves auto-generate a unique scenario title/id when the requested name is already taken. Saving an already-open saved scenario updates that same bundle instead of creating a duplicate.

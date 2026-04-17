@@ -1,11 +1,11 @@
 {
   "metadata": {
-    "scenario_id": "untitled-scenario",
+    "scenario_id": "untitled-scenarioasasfdas",
     "schema_version": "0.1.0",
-    "title": "untitled-scenario",
+    "title": "untitled-scenarioasasfdas",
     "description": "",
     "seed": 0,
-    "created_at": "2026-04-17T18:10:53.754Z",
+    "created_at": "2026-04-17T18:11:06.975Z",
     "authoring_version": "editor-ui"
   },
   "map": {
@@ -26,7 +26,24 @@
     ]
   },
   "entities": [],
-  "obstacles": [],
+  "obstacles": [
+    {
+      "id": "building-45cd4b1f",
+      "type": "building",
+      "label": "Building",
+      "attenuation_db": 0.8,
+      "blocks_flight": true,
+      "shape": "rect",
+      "position": {
+        "x": 229.0,
+        "y": 282.0
+      },
+      "size": {
+        "width": 120.0,
+        "height": 80.0
+      }
+    }
+  ],
   "demand_zones": [
     {
       "id": "demand-b84e7f5d",

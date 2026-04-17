@@ -25,6 +25,7 @@ from meshflight_schema.compiled import (
 )
 
 from meshflight_schema.scenario import (
+    ClientEntity,
     CircleObstacle,
     DroneEntity,
     GatewayEntity,
@@ -45,6 +46,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "interference_penalty_scale": 10.0,
     "include_client_client_edges": False,
 }
+
 
 @dataclass(slots=True)
 class CompileArtifacts:
@@ -92,6 +94,7 @@ def _build_compile_artifact_paths(
         report_path=output_dir / "compile_report.json",
     )
 
+
 def _entity_properties(entity: ScenarioEntity) -> dict[str, str | int | float | bool]:
     props: dict[str, str | int | float | bool] = {
         "label": entity.label,
@@ -116,8 +119,8 @@ def _entity_properties(entity: ScenarioEntity) -> dict[str, str | int | float | 
                 "comms_range_m": entity.comms_range_m,
             }
         )
-    elif entity.type == EntityType.CLIENT:
-        props["demand_profile"] = getattr(entity, "demand_profile")
+    elif isinstance(entity, ClientEntity):
+        props["demand_profile"] = entity.demand_profile
     elif isinstance(entity, InterferenceEmitterEntity):
         props.update(
             {
@@ -146,8 +149,8 @@ def _normalize_entities(source: ScenarioSource) -> list[NormalizedEntity]:
     normalized.sort(key=lambda entity: entity.id)
     return normalized
 
-def _obstacle_geometry(obstacle: ScenarioObstacle) -> BaseGeometry:
 
+def _obstacle_geometry(obstacle: ScenarioObstacle) -> BaseGeometry:
     if isinstance(obstacle, RectObstacle):
         return box(
             obstacle.position.x,
@@ -155,7 +158,7 @@ def _obstacle_geometry(obstacle: ScenarioObstacle) -> BaseGeometry:
             obstacle.position.x + obstacle.size.width,
             obstacle.position.y + obstacle.size.height,
         )
-    
+
     if isinstance(obstacle, SegmentObstacle):
         return LineString(
             [
@@ -163,15 +166,19 @@ def _obstacle_geometry(obstacle: ScenarioObstacle) -> BaseGeometry:
                 (obstacle.end.x, obstacle.end.y),
             ]
         )
-    
+
     if isinstance(obstacle, CircleObstacle):
         return Point(obstacle.center.x, obstacle.center.y).buffer(obstacle.radius)
-    
 
     raise TypeError(f"Unsupported obstacle type: {type(obstacle)}")
 
-def _obstacle_bounds_cell_keys( geometry: BaseGeometry, grid_cell_size_m: float, map_width: float, map_height: float) -> list[str]:
 
+def _obstacle_bounds_cell_keys(
+    geometry: BaseGeometry,
+    grid_cell_size_m: float,
+    map_width: float,
+    map_height: float,
+) -> list[str]:
     min_x, min_y, max_x, max_y = geometry.bounds
 
     min_col = max(0, int(min_x // grid_cell_size_m))
@@ -187,9 +194,7 @@ def _obstacle_bounds_cell_keys( geometry: BaseGeometry, grid_cell_size_m: float,
     return sorted(set(cell_keys))
 
 
-
 def _obstacle_los_penalty(obstacle: ScenarioObstacle, config: dict[str, Any]) -> float:
-
     penalty = float(obstacle.attenuation_db) * float(config["los_block_penalty_multiplier"])
 
     if obstacle.blocks_flight:
@@ -199,6 +204,7 @@ def _obstacle_los_penalty(obstacle: ScenarioObstacle, config: dict[str, Any]) ->
         penalty += float(config["blocks_flight_penalty_bonus"])
 
     return penalty
+
 
 def _build_obstacle_index(
     source: ScenarioSource,
@@ -229,6 +235,7 @@ def _build_obstacle_index(
     entries.sort(key=lambda entry: entry.obstacle_id)
     return entries, geometries
 
+
 def _distance_m(a: ScenarioEntity, b: ScenarioEntity) -> float:
     return math.hypot(a.position.x - b.position.x, a.position.y - b.position.y)
 
@@ -238,11 +245,14 @@ def _entity_comms_range(entity: ScenarioEntity) -> float | None:
         return entity.comms_range_m
     return None
 
+
 def _is_connectivity_entity(entity: ScenarioEntity) -> bool:
     return entity.type in {EntityType.DRONE, EntityType.GATEWAY, EntityType.CLIENT}
 
+
 def _line_between_entities(a: ScenarioEntity, b: ScenarioEntity) -> LineString:
     return LineString([(a.position.x, a.position.y), (b.position.x, b.position.y)])
+
 
 def _segment_obstacle_penalty(
     line: LineString,
@@ -258,6 +268,7 @@ def _segment_obstacle_penalty(
             total_penalty += _obstacle_los_penalty(obstacle, config)
 
     return total_penalty
+
 
 def _segment_interference_penalty(
     line: LineString,
@@ -278,6 +289,7 @@ def _segment_interference_penalty(
             penalty += closeness * float(entity.intensity) * scale
 
     return penalty
+
 
 def _build_candidate_graph_edges(
     source: ScenarioSource,

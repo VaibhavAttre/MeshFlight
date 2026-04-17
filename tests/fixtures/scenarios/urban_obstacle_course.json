@@ -1,0 +1,186 @@
+{
+  "metadata": {
+    "scenario_id": "urban-obstacle-course",
+    "schema_version": "0.1.0",
+    "title": "Urban Obstacle Course",
+    "description": "Richer scenario with interference and multiple obstacle types.",
+    "seed": 21,
+    "created_at": "2026-04-17T18:35:00Z",
+    "authoring_version": "fixture-suite"
+  },
+  "map": {
+    "width": 1400,
+    "height": 900,
+    "grid_resolution": 25,
+    "unit_scale_meters": 1,
+    "origin": {
+      "x": 0,
+      "y": 0
+    },
+    "layers": [
+      {
+        "id": "base",
+        "name": "Base",
+        "visible": true
+      }
+    ]
+  },
+  "entities": [
+    {
+      "id": "gw-urban",
+      "type": "gateway",
+      "label": "Urban Gateway",
+      "position": {
+        "x": 140,
+        "y": 440
+      },
+      "tags": [],
+      "uplink_capacity_mbps": 400,
+      "comms_range_m": 300
+    },
+    {
+      "id": "dr-a",
+      "type": "drone",
+      "label": "Drone A",
+      "position": {
+        "x": 310,
+        "y": 420
+      },
+      "tags": [],
+      "battery_capacity_mah": 120,
+      "max_speed_mps": 18,
+      "comms_range_m": 200,
+      "waypoint_step_m": 30
+    },
+    {
+      "id": "dr-b",
+      "type": "drone",
+      "label": "Drone B",
+      "position": {
+        "x": 500,
+        "y": 450
+      },
+      "tags": [],
+      "battery_capacity_mah": 120,
+      "max_speed_mps": 18,
+      "comms_range_m": 200,
+      "waypoint_step_m": 30
+    },
+    {
+      "id": "client-video",
+      "type": "client",
+      "label": "Video Client",
+      "position": {
+        "x": 690,
+        "y": 430
+      },
+      "tags": [],
+      "demand_profile": "video"
+    },
+    {
+      "id": "jammer-1",
+      "type": "interference_emitter",
+      "label": "Jammer 1",
+      "position": {
+        "x": 540,
+        "y": 320
+      },
+      "tags": [],
+      "radius_m": 120,
+      "intensity": 2.5
+    }
+  ],
+  "obstacles": [
+    {
+      "id": "building-a",
+      "type": "building",
+      "label": "Building A",
+      "attenuation_db": 10,
+      "blocks_flight": true,
+      "shape": "rect",
+      "position": {
+        "x": 370,
+        "y": 300
+      },
+      "size": {
+        "width": 90,
+        "height": 140
+      }
+    },
+    {
+      "id": "wall-a",
+      "type": "wall",
+      "label": "Wall A",
+      "attenuation_db": 5,
+      "blocks_flight": false,
+      "shape": "segment",
+      "start": {
+        "x": 610,
+        "y": 260
+      },
+      "end": {
+        "x": 760,
+        "y": 260
+      }
+    },
+    {
+      "id": "trees-a",
+      "type": "vegetation",
+      "label": "Tree Zone A",
+      "attenuation_db": 2,
+      "blocks_flight": false,
+      "shape": "circle",
+      "center": {
+        "x": 830,
+        "y": 500
+      },
+      "radius": 70
+    }
+  ],
+  "demand_zones": [
+    {
+      "id": "urban-demand",
+      "label": "Urban Demand",
+      "center": {
+        "x": 700,
+        "y": 430
+      },
+      "radius_m": 110,
+      "priority": 8
+    }
+  ],
+  "traffic_classes": [
+    {
+      "id": "video-1",
+      "flow_class": "video",
+      "source_entity_ids": [
+        "client-video"
+      ],
+      "destination_entity_ids": [
+        "gw-urban"
+      ],
+      "rate_kbps": 2048,
+      "sla_latency_ms": 250
+    }
+  ],
+  "scheduled_traffic": [
+    {
+      "id": "video-window-1",
+      "traffic_class_id": "video-1",
+      "time_window": {
+        "start_time_s": 10,
+        "end_time_s": 180
+      }
+    }
+  ],
+  "chaos_events": [
+    {
+      "id": "interference-1",
+      "event_type": "interference_spike",
+      "target_entity_id": "jammer-1",
+      "trigger_time_s": 60,
+      "duration_s": 30,
+      "intensity": 3
+    }
+  ]
+}

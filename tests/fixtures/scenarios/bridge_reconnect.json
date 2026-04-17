@@ -1,0 +1,145 @@
+{
+  "metadata": {
+    "scenario_id": "bridge-reconnect",
+    "schema_version": "0.1.0",
+    "title": "Bridge Reconnect",
+    "description": "Simple relay bridge scenario used for schema and compiler tests.",
+    "seed": 7,
+    "created_at": "2026-04-17T18:30:00Z",
+    "authoring_version": "fixture-suite"
+  },
+  "map": {
+    "width": 1000,
+    "height": 800,
+    "grid_resolution": 20,
+    "unit_scale_meters": 1,
+    "origin": {
+      "x": 0,
+      "y": 0
+    },
+    "layers": [
+      {
+        "id": "base",
+        "name": "Base",
+        "visible": true
+      }
+    ]
+  },
+  "entities": [
+    {
+      "id": "gw-1",
+      "type": "gateway",
+      "label": "Gateway 1",
+      "position": {
+        "x": 120,
+        "y": 380
+      },
+      "tags": [],
+      "uplink_capacity_mbps": 250,
+      "comms_range_m": 260
+    },
+    {
+      "id": "dr-1",
+      "type": "drone",
+      "label": "Drone 1",
+      "position": {
+        "x": 260,
+        "y": 380
+      },
+      "tags": [],
+      "battery_capacity_mah": 100,
+      "max_speed_mps": 15,
+      "comms_range_m": 180,
+      "waypoint_step_m": 25
+    },
+    {
+      "id": "dr-2",
+      "type": "drone",
+      "label": "Drone 2",
+      "position": {
+        "x": 430,
+        "y": 380
+      },
+      "tags": [],
+      "battery_capacity_mah": 100,
+      "max_speed_mps": 15,
+      "comms_range_m": 180,
+      "waypoint_step_m": 25
+    },
+    {
+      "id": "client-1",
+      "type": "client",
+      "label": "Client 1",
+      "position": {
+        "x": 560,
+        "y": 380
+      },
+      "tags": [],
+      "demand_profile": "telemetry"
+    }
+  ],
+  "obstacles": [
+    {
+      "id": "building-1",
+      "type": "building",
+      "label": "Building 1",
+      "attenuation_db": 8,
+      "blocks_flight": true,
+      "shape": "rect",
+      "position": {
+        "x": 320,
+        "y": 300
+      },
+      "size": {
+        "width": 80,
+        "height": 120
+      }
+    }
+  ],
+  "demand_zones": [
+    {
+      "id": "demand-1",
+      "label": "Demand Zone 1",
+      "center": {
+        "x": 560,
+        "y": 380
+      },
+      "radius_m": 90,
+      "priority": 6
+    }
+  ],
+  "traffic_classes": [
+    {
+      "id": "traffic-1",
+      "flow_class": "telemetry",
+      "source_entity_ids": [
+        "client-1"
+      ],
+      "destination_entity_ids": [
+        "gw-1"
+      ],
+      "rate_kbps": 256,
+      "sla_latency_ms": 150
+    }
+  ],
+  "scheduled_traffic": [
+    {
+      "id": "traffic-event-1",
+      "traffic_class_id": "traffic-1",
+      "time_window": {
+        "start_time_s": 0,
+        "end_time_s": 120
+      }
+    }
+  ],
+  "chaos_events": [
+    {
+      "id": "chaos-1",
+      "event_type": "node_failure",
+      "target_entity_id": "dr-2",
+      "trigger_time_s": 45,
+      "duration_s": 20,
+      "intensity": 1
+    }
+  ]
+}

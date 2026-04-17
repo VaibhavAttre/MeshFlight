@@ -10,7 +10,7 @@ from pydantic import TypeAdapter, ValidationError
 
 
 ROOT = Path(__file__).resolve().parents[2]
-SCENARIOS_DIR = ROOT / "artifacts" / "scenarios"
+FIXTURES_DIR = ROOT / "tests" / "fixtures" / "scenarios"
 
 
 def load_json(path: Path) -> dict:
@@ -18,7 +18,7 @@ def load_json(path: Path) -> dict:
 
 
 def test_example_scenarios_validate() -> None:
-    scenario_paths = sorted(SCENARIOS_DIR.glob("*.json"))
+    scenario_paths = sorted(FIXTURES_DIR.glob("*.json"))
     assert scenario_paths
 
     for path in scenario_paths:
@@ -27,7 +27,7 @@ def test_example_scenarios_validate() -> None:
 
 
 def test_invalid_scenario_missing_schema_version_fails() -> None:
-    payload = load_json(SCENARIOS_DIR / "bridge_reconnect.json")
+    payload = load_json(FIXTURES_DIR / "bridge_reconnect.json")
     del payload["metadata"]["schema_version"]
 
     with pytest.raises(ValidationError):
@@ -35,7 +35,7 @@ def test_invalid_scenario_missing_schema_version_fails() -> None:
 
 
 def test_invalid_scenario_unknown_entity_reference_fails() -> None:
-    payload = load_json(SCENARIOS_DIR / "bridge_reconnect.json")
+    payload = load_json(FIXTURES_DIR / "bridge_reconnect.json")
     payload["traffic_classes"][0]["destination_entity_ids"] = ["gw-missing"]
 
     with pytest.raises(ValidationError, match="unknown entities"):
@@ -43,7 +43,7 @@ def test_invalid_scenario_unknown_entity_reference_fails() -> None:
 
 
 def test_invalid_scenario_out_of_bounds_entity_fails() -> None:
-    payload = load_json(SCENARIOS_DIR / "bridge_reconnect.json")
+    payload = load_json(FIXTURES_DIR / "bridge_reconnect.json")
     payload["entities"][0]["position"]["x"] = 9999
 
     with pytest.raises(ValidationError, match="outside map bounds"):

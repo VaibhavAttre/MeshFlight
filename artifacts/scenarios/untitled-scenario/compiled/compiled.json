@@ -1,26 +1,13 @@
 {
   "compilation_metadata": {
     "source_scenario_id": "untitled-scenario",
-    "source_hash": "26bb26a6c1a4023450cb37bcbfc408df1b040f42b89f58dfa2b5cb0c06082db5",
+    "source_hash": "e4d12a04bfae3dcf5f8ad7b5e13416ff62ad5bd9f5897a731e412d5e9624fb86",
     "compiler_version": "0.1.0",
     "config_hash": "77e70ea0dfd6e7703003a96edecae373efabffdd01e424b7e32a23a931e08b2f",
     "seed": 0,
-    "generated_at": "2026-04-17T18:09:38Z"
+    "generated_at": "2026-04-17T18:10:53Z"
   },
-  "normalized_entities": [
-    {
-      "id": "gateway-15f28a49",
-      "type": "gateway",
-      "x": 307.0,
-      "y": 134.0,
-      "properties": {
-        "label": "Gateway",
-        "tags_csv": "editor:uplink=fiber",
-        "uplink_capacity_mbps": 250.0,
-        "comms_range_m": 260.0
-      }
-    }
-  ],
+  "normalized_entities": [],
   "obstacle_index": [],
   "candidate_graph_edges": [],
   "waypoint_candidates": [],
