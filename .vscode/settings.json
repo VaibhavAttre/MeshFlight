@@ -4,5 +4,7 @@
     "${workspaceFolder}\\packages\\schema\\src",
     "${workspaceFolder}\\packages\\runtime_contracts\\src",
     "${workspaceFolder}\\apps\\api\\src"
-  ]
+  ],
+  "python.terminal.useEnvFile": true
 }
+

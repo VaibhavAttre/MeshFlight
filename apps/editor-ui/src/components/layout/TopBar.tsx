@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useEditorStore } from "../../app/editorStore";
+import AIScenarioAssistantModal from "./AIScenarioAssistantModal";
 import {
   editorDocumentToScenarioSource,
   scenarioSourceToEditorDocument,
+  type ScenarioSource,
 } from "../../lib/scenarioMapper";
 import {
   compileScenarioOnBackend,
@@ -24,6 +26,7 @@ export default function TopBar() {
   const [selectedScenarioId, setSelectedScenarioId] = useState("");
   const [isBusy, setIsBusy] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
+  const [isAIModalOpen, setIsAIModalOpen] = useState(false);
 
   const documentName = useEditorStore((s) => s.documentName);
   const currentScenarioId = useEditorStore((s) => s.currentScenarioId);
@@ -222,121 +225,152 @@ export default function TopBar() {
     }
   }
 
+  function handleApplyAIScenario(
+    scenario: ScenarioSource | null | undefined,
+    mode: "generate" | "update",
+    sourceScenarioId: string | null
+  ) {
+    if (!scenario) {
+      return;
+    }
+
+    const doc = scenarioSourceToEditorDocument(scenario);
+    replaceFromDocument(doc);
+    setDocumentName(scenario.metadata.title);
+    setCurrentScenarioId(mode === "update" ? (sourceScenarioId ?? scenario.metadata.scenario_id) : null);
+    setSelectedScenarioId(mode === "update" ? (sourceScenarioId ?? scenario.metadata.scenario_id) : "");
+    setIsAIModalOpen(false);
+  }
+
   return (
-    <header className="topbar">
-      <div className="topbar-left">
-        <h1>MeshFlight Editor</h1>
-      </div>
-
-      <div className="topbar-center">
-        <input
-          value={documentName}
-          onChange={(e) => setDocumentName(e.target.value)}
-          className="topbar-name-input"
-          placeholder="Scenario name"
-        />
-      </div>
-
-      <div className="topbar-right">
-        <select
-          className="topbar-name-input"
-          value={selectedScenarioId}
-          onChange={handleSavedScenarioChange}
-          disabled={isBusy}
-          aria-label="Open saved scenario"
-        >
-          <option value="">Open saved scenario...</option>
-          {savedScenarios.map((scenario) => (
-            <option key={scenario.scenario_id} value={scenario.scenario_id}>
-              {scenario.title}
-              {scenario.has_compiled ? " [compiled]" : ""}
-            </option>
-          ))}
-        </select>
-
-        <button
-          type="button"
-          className={`drone-radius-toggle ${showDroneRanges ? "is-on" : ""}`}
-          onClick={toggleDroneRanges}
-          aria-pressed={showDroneRanges}
-        >
-          <span className="drone-radius-toggle__track">
-            <span className="drone-radius-toggle__thumb" />
-          </span>
-          <span className="drone-radius-toggle__label">
-            Drone Radius {showDroneRanges ? "On" : "Off"}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          className={`drone-radius-toggle ${showClientDroneLinks ? "is-on" : ""}`}
-          onClick={toggleClientDroneLinks}
-          aria-pressed={showClientDroneLinks}
-        >
-          <span className="drone-radius-toggle__track">
-            <span className="drone-radius-toggle__thumb" />
-          </span>
-          <span className="drone-radius-toggle__label">
-            Link Flow {showClientDroneLinks ? "On" : "Off"}
-          </span>
-        </button>
-
-        <button type="button" onClick={handleNew}>
-          New
-        </button>
-
-        <button
-          type="button"
-          onClick={handleLoadSavedScenario}
-          disabled={isBusy || !selectedScenario}
-          title="Reload the currently selected saved scenario"
-        >
-          Load
-        </button>
-
-        <button type="button" onClick={handleSave} disabled={isBusy}>
-          Save
-        </button>
-
-        <button type="button" onClick={handleCompile} disabled={isBusy}>
-          Compile
-        </button>
-
-        <div className="topbar-menu" ref={moreMenuRef}>
-          <button
-            type="button"
-            onClick={() => setIsMoreMenuOpen((current) => !current)}
-            disabled={isBusy}
-            aria-expanded={isMoreMenuOpen}
-          >
-            More
-          </button>
-
-          {isMoreMenuOpen && (
-            <div className="topbar-menu-panel">
-              <button type="button" onClick={handleExport} disabled={isBusy}>
-                Export
-              </button>
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isBusy}
-              >
-                Import
-              </button>
-            </div>
-          )}
+    <>
+      <header className="topbar">
+        <div className="topbar-left">
+          <h1>MeshFlight Editor</h1>
         </div>
 
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="application/json"
-          style={{ display: "none" }}
-          onChange={handleFileChange}
-        />
-      </div>
-    </header>
+        <div className="topbar-center">
+          <input
+            value={documentName}
+            onChange={(e) => setDocumentName(e.target.value)}
+            className="topbar-name-input"
+            placeholder="Scenario name"
+          />
+        </div>
+
+        <div className="topbar-right">
+          <select
+            className="topbar-name-input"
+            value={selectedScenarioId}
+            onChange={handleSavedScenarioChange}
+            disabled={isBusy}
+            aria-label="Open saved scenario"
+          >
+            <option value="">Open saved scenario...</option>
+            {savedScenarios.map((scenario) => (
+              <option key={scenario.scenario_id} value={scenario.scenario_id}>
+                {scenario.title}
+                {scenario.has_compiled ? " [compiled]" : ""}
+              </option>
+            ))}
+          </select>
+
+          <button
+            type="button"
+            className={`drone-radius-toggle ${showDroneRanges ? "is-on" : ""}`}
+            onClick={toggleDroneRanges}
+            aria-pressed={showDroneRanges}
+          >
+            <span className="drone-radius-toggle__track">
+              <span className="drone-radius-toggle__thumb" />
+            </span>
+            <span className="drone-radius-toggle__label">
+              Drone Radius {showDroneRanges ? "On" : "Off"}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            className={`drone-radius-toggle ${showClientDroneLinks ? "is-on" : ""}`}
+            onClick={toggleClientDroneLinks}
+            aria-pressed={showClientDroneLinks}
+          >
+            <span className="drone-radius-toggle__track">
+              <span className="drone-radius-toggle__thumb" />
+            </span>
+            <span className="drone-radius-toggle__label">
+              Link Flow {showClientDroneLinks ? "On" : "Off"}
+            </span>
+          </button>
+
+          <button type="button" onClick={handleNew}>
+            New
+          </button>
+
+          <button
+            type="button"
+            onClick={handleLoadSavedScenario}
+            disabled={isBusy || !selectedScenario}
+            title="Reload the currently selected saved scenario"
+          >
+            Load
+          </button>
+
+          <button type="button" onClick={handleSave} disabled={isBusy}>
+            Save
+          </button>
+
+          <button type="button" onClick={handleCompile} disabled={isBusy}>
+            Compile
+          </button>
+
+          <button type="button" onClick={() => setIsAIModalOpen(true)} disabled={isBusy}>
+            AI Scenario
+          </button>
+
+          <div className="topbar-menu" ref={moreMenuRef}>
+            <button
+              type="button"
+              onClick={() => setIsMoreMenuOpen((current) => !current)}
+              disabled={isBusy}
+              aria-expanded={isMoreMenuOpen}
+            >
+              More
+            </button>
+
+            {isMoreMenuOpen && (
+              <div className="topbar-menu-panel">
+                <button type="button" onClick={handleExport} disabled={isBusy}>
+                  Export
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isBusy}
+                >
+                  Import
+                </button>
+              </div>
+            )}
+          </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json"
+            style={{ display: "none" }}
+            onChange={handleFileChange}
+          />
+        </div>
+      </header>
+
+      <AIScenarioAssistantModal
+        isOpen={isAIModalOpen}
+        savedScenarios={savedScenarios}
+        currentScenarioId={currentScenarioId}
+        onClose={() => setIsAIModalOpen(false)}
+        onApply={handleApplyAIScenario}
+      />
+    </>
   );
 }

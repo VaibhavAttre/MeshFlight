@@ -8,6 +8,17 @@ from pydantic import BaseModel
 
 from meshflight_schema import ScenarioSource
 
+from .env import load_repo_env
+from .scenario_ai import (
+    AIScenarioProviderName,
+    ScenarioAIAssistRequest,
+    ScenarioAIAssistResponse,
+    ScenarioAIAssistHealthResponse,
+    ScenarioAIProviderError,
+    ScenarioAIValidationError,
+    generate_ai_assisted_scenario,
+    get_ai_assist_health,
+)
 from .storage import (
     compile_saved_scenario,
     ensure_storage_dirs,
@@ -16,6 +27,9 @@ from .storage import (
     save_scenario_source,
     scenario_source_path,
 )
+
+
+load_repo_env()
 
 
 class ScenarioSummary(BaseModel):
@@ -85,6 +99,29 @@ def post_scenario(scenario: ScenarioSource) -> SaveScenarioResponse:
         title=saved_scenario.metadata.title,
         path=str(path),
     )
+
+
+@app.post("/api/scenarios/ai-assist", response_model=ScenarioAIAssistResponse)
+def post_ai_assist_scenario(
+    request: ScenarioAIAssistRequest,
+) -> ScenarioAIAssistResponse:
+    try:
+        return generate_ai_assisted_scenario(request)
+    except ScenarioAIProviderError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    except ScenarioAIValidationError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+
+
+@app.get(
+    "/api/scenarios/ai-assist/health",
+    response_model=ScenarioAIAssistHealthResponse,
+)
+def get_ai_assist_scenario_health(
+    provider: AIScenarioProviderName | None = None,
+) -> ScenarioAIAssistHealthResponse:
+    return get_ai_assist_health(provider)
+
 
 @app.post("/api/scenarios/{scenario_id}/compile", response_model=CompileScenarioResponse)
 def post_compile_scenario(scenario_id: str) -> CompileScenarioResponse:
