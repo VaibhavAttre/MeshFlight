@@ -1,78 +1,115 @@
 # MeshFlight
 
-MeshFlight is a Phase 0 monorepo for scenario authoring, schema validation, compilation, and early control-plane workflows for a self-healing aerial mesh simulation project.
+MeshFlight is a monorepo for **2D mesh networking scenario authoring**, **schema validation**, **compilation into a structured runtime bundle**, and **early simulation / control-plane workflows** aimed at aerial relay / self-healing mesh experiments.
 
-Current repo focus:
-- `0A` local setup and repo health
-- `0B` shared contracts, fixtures, and validation
-- `0C` editor MVP
-- `0D` compiler MVP
-- partial `0F` save/load/compile API flows
+The codebase prioritizes a **small, inspectable pipeline**: authored scenarios → validated JSON → compiled graph / schedule → optional discrete-time simulation (`services/sim_core`) → artifacts the editor can replay.
 
-## Working Local Flows
+---
 
-- Frontend dev: `npm run dev:ui`
-- Backend dev: `npm run dev:api`
-- UI typecheck: `npm run typecheck:ui`
-- UI build: `npm run build:ui`
-- Python tests: `.venv\Scripts\python -m pytest -q`
-- Python lint: `.venv\Scripts\python -m ruff check .`
+## Goals
 
-## Repo Layout
+- **Authoring**: edit gateways, drones, clients, obstacles, demand zones, and chaos events on a canvas with predictable persistence.
+- **Contracts**: a single source of truth for scenario shape (`ScenarioSource`) and compiled output (`CompiledScenario`) via Pydantic models in `packages/schema`.
+- **Compilation**: turn editor scenarios into normalized entities, obstacle indexing, candidate connectivity edges, waypoint hints, mobility bounds, and a **runtime schedule** (traffic + chaos) aligned with the real compiler in `services/scenario_compiler`.
+- **Simulation**: a deterministic tick loop in `services/sim_core` (links → routing → limited drone movement toward disconnected clients → snapshots). Not a full RF or mobility simulator; it exists to **exercise compiled data** and produce **replayable timelines**.
+- **Integration**: FastAPI backend for save/load/compile/simulate; React editor for visual authoring and **snapshot replay** scrubbing after a run.
 
-- `apps/editor-ui` - React + TypeScript editor UI for scenario authoring
-- `apps/api` - FastAPI control-plane shell for save/load/compile actions
-- `services/scenario_compiler` - real scenario compiler service
-- `packages/schema` - Pydantic source/compiled/runtime data contracts
-- `packages/runtime_contracts` - runtime event contracts
-- `artifacts/scenarios` - backend-managed saved scenario bundles and compiled outputs
-- `tests/fixtures/scenarios` - canonical authored scenario fixtures for schema/compiler tests
-- `tests/schema` - schema contract tests
-- `tests/compiler` - compiler-focused tests
+---
 
-## Current Artifact Convention
+## Major components
 
-Each saved scenario lives in its own bundle:
+| Area | Path | Role |
+|------|------|------|
+| Editor UI | `apps/editor-ui` | Vite + React + Zustand canvas; scenario CRUD via API; compile; AI assist modal; **Simulate** + replay bar driven by snapshot JSON |
+| API | `apps/api` | FastAPI app (`meshflight_api`): scenarios, compile, AI assist health/generate, **POST simulate** + **GET run snapshots** |
+| Schema | `packages/schema` | `ScenarioSource`, `CompiledScenario`, shared enums / geometry types |
+| Compiler | `services/scenario_compiler` | CLI + library: `compile_scenario()` writes `compiled.json` + `compile_report.json` |
+| Simulator | `services/sim_core` | Runner, state, links, routing, movement, events, snapshots, I/O, CLI |
+| Fixtures | `tests/fixtures/scenarios` | Example authored scenarios for compiler / sim tests |
+| Local storage | `artifacts/scenarios` | Per-scenario bundles created by the API (`source/`, `compiled/`, `runs/`) |
 
-- `artifacts/scenarios/<scenario-id>/source/scenario.json`
-- `artifacts/scenarios/<scenario-id>/compiled/compiled.json`
-- `artifacts/scenarios/<scenario-id>/compiled/compile_report.json`
+---
 
-New saves auto-generate a unique scenario title/id when the requested name is already taken. Saving an already-open saved scenario updates that same bundle instead of creating a duplicate.
+## Features (current)
 
-## Local LLM Setup For AI Scenario Assistant
+- **Canvas authoring**: place and edit entities and obstacles; optional auto demand zones; chaos event list; client–drone link visualization based on geometry (editor-side heuristic).
+- **Save / load**: scenarios persisted under `artifacts/scenarios/<scenario-id>/source/scenario.json`.
+- **Compile**: produces `compiled/` artifacts used by simulation and tests.
+- **AI scenario assistant** (optional): backend calls Ollama, Gemini, or OpenAI to produce a **small JSON plan**; counts and placement are merged server-side so prompts drive outcomes; contextual chaos events attach after a valid build. See [Local LLM setup](#local-llm-setup-ai-scenario-assistant) below.
+- **Simulate + replay**: from the editor toolbar, save → compile → run the simulator → fetch snapshots; a replay strip scrubs tick indices and applies node positions (and failed-drone styling) from snapshot data. Snapshot count is **1 + ⌊duration_s / tick_duration_s⌋** (e.g. 28 s @ 1 s → 29 frames) unless those parameters change in the client call.
 
-The AI Scenario Assistant supports `Ollama`, `Gemini`, and `OpenAI` through the backend. The browser never talks to models directly.
+---
 
-### 1. Install Ollama
+## Tooling
 
-- Windows/macOS/Linux: [ollama.com/download](https://ollama.com/download)
+- **Node.js** (npm workspaces): root scripts proxy to `apps/editor-ui`.
+- **Python 3.11+** recommended; virtualenv at repo root (`.venv`).
+- **pytest** + **ruff** (see `pyproject.toml`). Tests assume repo-root `pythonpath` includes `services` (already configured for pytest).
+- **FastAPI / Uvicorn** for the API; **Vite** for the UI.
+- **Ollama** (or cloud keys) only for AI assist paths; models never run in the browser.
 
-### 2. Start Ollama
+---
 
-Start the Ollama app or service so the local HTTP API is running.
+## Quick start
 
-### 3. Pull the recommended model
-
-```powershell
-ollama pull qwen2.5-coder:7b
-```
-
-### 4. Test the model manually
+Prerequisites: Node.js, Python, a `.venv` with dev dependencies installed (`pip install -e` / project requirements as documented in individual app READMEs if present).
 
 ```powershell
-ollama run qwen2.5-coder:7b
+# API (from repo root; ensures services/ is importable via meshflight_api.main)
+npm run dev:api
+
+# Editor (separate shell)
+npm run dev:ui
 ```
 
-### 5. Confirm the local API is reachable
+Other useful scripts:
+
+| Script | Purpose |
+|--------|---------|
+| `npm run dev:api:stable` | API without auto-reload |
+| `npm run typecheck:ui` | TypeScript check for the editor |
+| `npm run build:ui` | Production build of the editor |
+| `npm run lint:ui` | ESLint for the editor |
+
+Python checks (examples):
 
 ```powershell
-curl http://localhost:11434/api/tags
+.venv\Scripts\python -m pytest -q
+.venv\Scripts\python -m ruff check .
 ```
 
-### 6. Configure the backend environment
+---
 
-Use the root [.env.example](C:\Users\vaibh\OneDrive\Desktop\MeshFlight\.env.example) as the template. The local AI section should look like:
+## Artifact layout
+
+Each scenario bundle under `artifacts/scenarios/<scenario-id>/`:
+
+- `source/scenario.json` — authored `ScenarioSource`
+- `compiled/compiled.json` — `CompiledScenario` from the compiler
+- `compiled/compile_report.json` — counts, hashes, config echo
+- `runs/<run-id>/` — optional simulation outputs (`snapshots.jsonl`, `events.jsonl`, `summary.json`, `run_config.json`)
+
+New saves receive a unique `scenario_id` when the requested title collides with an existing bundle; re-saving the same open scenario updates that bundle in place.
+
+---
+
+## Configuration
+
+- **API base URL for the editor**: set `VITE_API_BASE_URL` if the API is not at `http://127.0.0.1:8000` (see `apps/editor-ui/src/lib/scenarioApi.ts`).
+- **Environment**: copy [.env.example](.env.example) to `.env` at the repo root when present; the API loads it on startup (`meshflight_api.env`).
+
+---
+
+## Local LLM setup (AI scenario assistant)
+
+The assistant is **backend-only**; the browser talks to the MeshFlight API, which talks to the configured provider.
+
+### Ollama (typical local path)
+
+1. Install from [ollama.com/download](https://ollama.com/download).
+2. Start the Ollama service so `http://localhost:11434` responds.
+3. Pull a model, e.g. `ollama pull qwen2.5-coder:7b`.
+4. In `.env`, set for example:
 
 ```env
 LLM_PROVIDER=ollama
@@ -80,49 +117,44 @@ OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=qwen2.5-coder:7b
 ```
 
-If you want to use a cloud provider from the UI selector instead, also configure one of:
+### Optional cloud providers
+
+Configure one of the following blocks as needed; OpenAI stays opt-in because it is billed usage.
 
 ```env
-GEMINI_API_KEY=your-key
+GEMINI_API_KEY=...
 GEMINI_MODEL=gemini-2.5-flash-lite
 GEMINI_BASE_URL=https://generativelanguage.googleapis.com/v1beta
 ```
 
-or
-
 ```env
 OPENAI_AI_ASSIST_ENABLED=true
 OPENAI_MAX_AI_ASSIST_REQUESTS_PER_DAY=3
-OPENAI_API_KEY=your-key
+OPENAI_API_KEY=...
 OPENAI_MODEL=gpt-5-nano
 OPENAI_BASE_URL=https://api.openai.com/v1
 ```
 
-OpenAI is paid API usage, so it stays disabled by default unless you intentionally enable it.
+### Health check
 
-### 7. Start the backend and UI
+`GET /api/scenarios/ai-assist/health` reports whether the selected provider is configured and (for Ollama) whether the model appears installed.
 
-```powershell
-npm run dev:api
-npm run dev:ui
-```
+### Behavior notes
 
-### 8. Check provider health
+The AI path produces a **plan JSON**, not raw full-scenario coordinates. The API merges prompt-derived counts, runs a deterministic builder, attaches **contextual chaos events** from scenario structure, and validates against the schema. Unsupported natural-language asks (e.g. full 3D terrain) are rejected up front with a suggested rephrase.
 
-The backend exposes:
+---
 
-- `GET /api/scenarios/ai-assist/health`
+## Further reading
 
-It verifies:
+- `apps/api/README.md` — API-specific notes
+- `apps/editor-ui/README.md` — UI dev server and build
+- `services/scenario_compiler/README.md` — compiler CLI
+- `services/sim_core/README.md` — simulator (`sim_core`) overview
+- `docs/architecture/README.md` — placeholder for deeper architecture notes
 
-- the selected provider is configured
-- Ollama is reachable when Ollama is selected
-- the configured model is installed when the provider supports local model discovery
+---
 
-### 9. Test from the UI
+## License / status
 
-Open the editor, click `AI Scenario`, and use a prompt like:
-
-`Generate a small emergency response scenario with one gateway, three drones, six clients, one building blocking line-of-sight, and one interference zone. Use reasonable positions and metadata. Make the scenario name "small-emergency-response-test".`
-
-The current editor-safe AI path represents interference pressure using supported editor objects such as vegetation zones or interference-spike events, so the result stays editable in the canvas.
+Private research / prototype repository (`"private": true` in `package.json`). Work-in-progress; APIs and UX evolve with the mesh authoring and simulation track.
