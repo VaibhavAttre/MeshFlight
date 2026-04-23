@@ -1,10 +1,21 @@
 from __future__ import annotations
 
+import sys
 from contextlib import asynccontextmanager
+from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+# Ensure `services.*` imports resolve when uvicorn is started without PYTHONPATH.
+_here = Path(__file__).resolve().parent
+for ancestor in [_here, *_here.parents]:
+    if (ancestor / "services" / "sim_core").is_dir():
+        root_str = str(ancestor)
+        if root_str not in sys.path:
+            sys.path.insert(0, root_str)
+        break
+
+from fastapi import Body, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from meshflight_schema import ScenarioSource
 
@@ -24,6 +35,8 @@ from .storage import (
     ensure_storage_dirs,
     list_scenarios,
     load_scenario_source,
+    read_simulation_snapshots,
+    run_simulation_for_scenario,
     save_scenario_source,
     scenario_source_path,
 )
@@ -51,6 +64,23 @@ class CompileScenarioResponse(BaseModel):
     output_dir: str
     compiled_path: str
     report_path: str
+
+
+class SimulateScenarioRequest(BaseModel):
+    duration_s: float = Field(default=30.0, gt=0, le=86_400)
+    tick_duration_s: float = Field(default=1.0, gt=0, le=3600)
+    drone_speed_mps: float = Field(default=20.0, gt=0, le=500)
+
+
+class SimulateScenarioResponse(BaseModel):
+    scenario_id: str
+    run_id: str
+    summary: dict
+    run_dir: str
+    snapshots_path: str
+    events_path: str
+    summary_path: str
+    run_config_path: str
 
 
 @asynccontextmanager
@@ -121,6 +151,42 @@ def get_ai_assist_scenario_health(
     provider: AIScenarioProviderName | None = None,
 ) -> ScenarioAIAssistHealthResponse:
     return get_ai_assist_health(provider)
+
+
+@app.post(
+    "/api/scenarios/{scenario_id}/simulate",
+    response_model=SimulateScenarioResponse,
+)
+def post_simulate_scenario(
+    scenario_id: str,
+    body: SimulateScenarioRequest | None = Body(default=None),
+) -> SimulateScenarioResponse:
+    """Run Stage 0E simulation on the saved compiled scenario bundle."""
+    opts = body if body is not None else SimulateScenarioRequest()
+    try:
+        result = run_simulation_for_scenario(
+            scenario_id,
+            duration_s=opts.duration_s,
+            tick_duration_s=opts.tick_duration_s,
+            drone_speed_mps=opts.drone_speed_mps,
+        )
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except Exception as error:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Simulation failed: {error!s}",
+        ) from error
+
+    return SimulateScenarioResponse.model_validate(result)
+
+
+@app.get("/api/scenarios/{scenario_id}/runs/{run_id}/snapshots")
+def get_simulation_snapshots(scenario_id: str, run_id: str) -> list[dict]:
+    try:
+        return read_simulation_snapshots(scenario_id, run_id)
+    except FileNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
 
 
 @app.post("/api/scenarios/{scenario_id}/compile", response_model=CompileScenarioResponse)

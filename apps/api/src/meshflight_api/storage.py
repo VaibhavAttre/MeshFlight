@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import re
+import uuid
 from pathlib import Path
+from typing import Any
 
-from meshflight_schema import ScenarioSource
+from meshflight_schema import CompiledScenario, ScenarioSource
 from services.scenario_compiler.compiler import compile_scenario
+from services.sim_core.io import read_jsonl, write_simulation_outputs
+from services.sim_core.runner import SimulationRunner
 
 
 ROOT_DIR = Path(__file__).resolve().parents[4]
@@ -38,6 +42,10 @@ def scenario_source_path(scenario_id: str) -> Path:
 
 def compiled_scenario_bundle_path(scenario_id: str) -> Path:
     return scenario_compiled_dir(scenario_id) / "compiled.json"
+
+
+def scenario_run_dir(scenario_id: str, run_id: str) -> Path:
+    return scenario_dir(scenario_id) / "runs" / run_id
 
 
 def _model_to_json(model) -> str:
@@ -154,3 +162,67 @@ def compile_saved_scenario(scenario_id: str) -> dict[str, str]:
         "compiled_path": str(output_dir / "compiled.json"),
         "report_path": str(output_dir / "compile_report.json"),
     }
+
+
+def run_simulation_for_scenario(
+    scenario_id: str,
+    *,
+    duration_s: float,
+    tick_duration_s: float,
+    drone_speed_mps: float,
+) -> dict[str, Any]:
+    """
+    Execute Stage 0E simulation against compiled.json for this scenario.
+
+    Writes artifacts under ``artifacts/scenarios/<scenario_id>/runs/<run_id>/``.
+    """
+    compiled_path = compiled_scenario_bundle_path(scenario_id)
+    if not compiled_path.exists():
+        raise FileNotFoundError(
+            f"No compiled scenario for '{scenario_id}'. Compile before simulating."
+        )
+
+    compiled = CompiledScenario.model_validate_json(compiled_path.read_text(encoding="utf-8"))
+    run_id = f"run-{uuid.uuid4().hex[:12]}"
+    runner = SimulationRunner(
+        compiled_scenario=compiled,
+        run_id=run_id,
+        duration_s=duration_s,
+        tick_duration_s=tick_duration_s,
+        drone_speed_mps=drone_speed_mps,
+    )
+    result = runner.run()
+
+    runs_root = scenario_dir(scenario_id) / "runs"
+    run_config: dict[str, Any] = {
+        "scenario_id": scenario_id,
+        "run_id": run_id,
+        "compiled_path": str(compiled_path),
+        "duration_s": duration_s,
+        "tick_duration_s": tick_duration_s,
+        "drone_speed_mps": drone_speed_mps,
+    }
+    paths = write_simulation_outputs(
+        result=result,
+        run_config=run_config,
+        runs_root=runs_root,
+    )
+
+    return {
+        "scenario_id": scenario_id,
+        "run_id": run_id,
+        "summary": result.summary,
+        "run_dir": str(paths.run_dir),
+        "snapshots_path": str(paths.snapshots_path),
+        "events_path": str(paths.events_path),
+        "summary_path": str(paths.summary_path),
+        "run_config_path": str(paths.run_config_path),
+    }
+
+
+def read_simulation_snapshots(scenario_id: str, run_id: str) -> list[dict[str, Any]]:
+    path = scenario_run_dir(scenario_id, run_id) / "snapshots.jsonl"
+    if not path.exists():
+        raise FileNotFoundError(f"No snapshots for run '{run_id}' on scenario '{scenario_id}'.")
+    rows = read_jsonl(path)
+    return [row for row in rows if isinstance(row, dict)]

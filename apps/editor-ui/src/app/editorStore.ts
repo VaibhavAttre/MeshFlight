@@ -92,6 +92,13 @@ export type EditorChaosEvent = {
   intensity: number;
 };
 
+export type SimulationReplayState = {
+  scenarioId: string;
+  runId: string;
+  snapshots: Record<string, unknown>[];
+  index: number;
+};
+
 type EditorStore = {
   activeTool: Tool;
   setActiveTool: (tool: Tool) => void;
@@ -153,6 +160,12 @@ type EditorStore = {
   resetDocument: () => void;
   replaceFromDocument: (doc: EditorDocument) => void;
   exportToDocument: () => EditorDocument;
+
+  simulationReplay: SimulationReplayState | null;
+  simulationFailedIds: string[];
+  setSimulationReplay: (value: SimulationReplayState | null) => void;
+  applySimulationReplayAtIndex: (index: number) => void;
+  clearSimulationReplay: () => void;
 };
 
 export function computeAutoDemandZones(state: {
@@ -445,6 +458,66 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       events: state.events.filter((event) => event.id !== id),
     })),
 
+  simulationReplay: null,
+  simulationFailedIds: [],
+  setSimulationReplay: (value) =>
+    set({
+      simulationReplay: value,
+      simulationFailedIds: [],
+    }),
+  applySimulationReplayAtIndex: (index) => {
+    const replay = get().simulationReplay;
+    if (!replay || index < 0 || index >= replay.snapshots.length) {
+      return;
+    }
+
+    const snap = replay.snapshots[index] as {
+      nodes?: Array<{
+        id: string;
+        kind: string;
+        x: number;
+        y: number;
+        status?: string;
+        battery_pct?: number | null;
+      }>;
+    };
+
+    const failed: string[] = [];
+    for (const n of snap.nodes ?? []) {
+      if (n.kind !== "drone" && n.kind !== "gateway" && n.kind !== "client") {
+        continue;
+      }
+
+      const existing = get().objects.find((o) => o.id === n.id);
+      if (!existing) {
+        continue;
+      }
+
+      if (existing.type === "drone") {
+        const patch: Partial<DroneObject> = { x: n.x, y: n.y };
+        if (n.status === "failed") {
+          failed.push(n.id);
+          patch.battery = 0;
+        } else if (typeof n.battery_pct === "number") {
+          patch.battery = n.battery_pct;
+        }
+        get().updateObject(n.id, patch as Partial<EditorObject>);
+      } else {
+        get().updateObject(n.id, { x: n.x, y: n.y } as Partial<EditorObject>);
+      }
+    }
+
+    set({
+      simulationReplay: { ...replay, index },
+      simulationFailedIds: failed,
+    });
+  },
+  clearSimulationReplay: () =>
+    set({
+      simulationReplay: null,
+      simulationFailedIds: [],
+    }),
+
   resetDocument: () => {
     const empty = createEmptyEditorDocument();
     set({
@@ -467,6 +540,8 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       canvasHeight: empty.canvas.height,
       events: empty.events,
       currentScenarioId: null,
+      simulationReplay: null,
+      simulationFailedIds: [],
     });
   },
 
@@ -491,6 +566,8 @@ export const useEditorStore = create<EditorStore>((set, get) => ({
       canvasHeight: doc.canvas.height,
       events: doc.events,
       currentScenarioId: null,
+      simulationReplay: null,
+      simulationFailedIds: [],
     });
   },
 

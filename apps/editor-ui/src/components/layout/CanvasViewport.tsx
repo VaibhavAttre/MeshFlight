@@ -169,6 +169,7 @@ export default function CanvasViewport() {
   const setSelectedObjectId = useEditorStore((s) => s.setSelectedObjectId);
   const setSelectedObjectIds = useEditorStore((s) => s.setSelectedObjectIds);
   const clearSelection = useEditorStore((s) => s.clearSelection);
+  const simulationFailedIds = useEditorStore((s) => s.simulationFailedIds);
 
   const [dragState, setDragState] = useState<DragState>(null);
   const [resizeState, setResizeState] = useState<ResizeState>(null);
@@ -521,7 +522,7 @@ export default function CanvasViewport() {
 
   const drones = objects.filter(
     (object): object is Extract<EditorObject, { type: "drone" }> =>
-      object.type === "drone"
+      object.type === "drone" && !simulationFailedIds.includes(object.id)
   );
   const gateways = objects.filter(
     (object): object is Extract<EditorObject, { type: "gateway" }> =>
@@ -845,10 +846,11 @@ export default function CanvasViewport() {
           };
 
           switch (object.type) {
-            case "drone":
+            case "drone": {
+              const simFailed = simulationFailedIds.includes(object.id);
               return (
                 <div key={object.id}>
-                  {showDroneRanges && (
+                  {showDroneRanges && !simFailed && (
                     <div
                       className="range-visual"
                       style={{
@@ -860,7 +862,7 @@ export default function CanvasViewport() {
                     />
                   )}
 
-                  {isSingleSelected && showDroneRanges && (
+                  {isSingleSelected && showDroneRanges && !simFailed && (
                     <Handle
                       x={object.x + object.radioRange}
                       y={object.y}
@@ -875,16 +877,19 @@ export default function CanvasViewport() {
                       width: 22,
                       height: 22,
                       borderRadius: "50%",
-                      background: reachableDroneIds.has(object.id)
-                        ? "#38bdf8"
-                        : "rgba(56, 189, 248, 0.34)",
-                      opacity: reachableDroneIds.has(object.id) ? 1 : 0.58,
+                      background: simFailed
+                        ? "#475569"
+                        : reachableDroneIds.has(object.id)
+                          ? "#38bdf8"
+                          : "rgba(56, 189, 248, 0.34)",
+                      opacity: simFailed ? 0.85 : reachableDroneIds.has(object.id) ? 1 : 0.58,
                     }}
                   >
                     <ObjectLabel text={object.label} />
                   </div>
                 </div>
               );
+            }
 
             case "gateway":
               return (

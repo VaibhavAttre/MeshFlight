@@ -4,8 +4,10 @@ target-version = "py311"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = [".", "apps/api/src", "packages/schema/src", "packages/runtime_contracts/src"]
-addopts = "-p no:cacheprovider"
+pythonpath = [".", "apps/api/src", "packages/schema/src", "packages/runtime_contracts/src", "services"]
+# Keep pytest's numbered temp dirs under the repo so Windows runs do not depend on
+# %LOCALAPPDATA%\Temp\pytest-of-* (often hits WinError 5 when that tree is locked).
+addopts = "-p no:cacheprovider --basetemp=artifacts/pytest-basetemp"
 
 [tool.ruff.lint]
 select = ["E", "F", "I"]

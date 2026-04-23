@@ -31,6 +31,11 @@ export type AIAssistDiagnostics = {
   model: string | null;
   base_url: string | null;
   events: AIAssistEvent[];
+  plan_repair_passes: number;
+  deterministic_plan_builder_used: boolean;
+  llm_invocations: number;
+  heuristic_prompt_fallback_used: boolean;
+  raw_llm_logged: boolean;
   schema_repair_passes: number;
   synthetic_fallback_used: boolean;
   alignment_pass_attempted: boolean;

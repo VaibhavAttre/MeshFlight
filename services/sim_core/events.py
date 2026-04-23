@@ -15,11 +15,13 @@ EventKind = Literal[
     "failure",
 ]
 
-evkind = {"node_failure", "drone_failure", "fail_node", "failure"}
+_FAILURE_KINDS: frozenset[str] = frozenset(
+    {"node_failure", "drone_failure", "fail_node", "failure"}
+)
 
-@dataclass 
+
+@dataclass
 class AppliedEvent:
-
     event_id: str
     kind: str
     time_s: float
@@ -28,18 +30,17 @@ class AppliedEvent:
     payload: dict[str, Any]
 
 
-def apply_due_events(state: SimState, schedule:list[dict[str, Any]]) -> list[AppliedEvent]:
-
+def apply_due_events(state: SimState, schedule: list[dict[str, Any]]) -> list[AppliedEvent]:
+    """Apply schedule entries whose time_s is <= current simulation time (once each)."""
     applied: list[AppliedEvent] = []
 
     for event in schedule:
-        
         event_id = _event_id(event)
-        
+
         if event_id in state.applied_event_ids:
             continue
 
-        event_time_s =_event_time_s(event)
+        event_time_s = _event_time_s(event)
         if event_time_s > state.time_s:
             continue
 
@@ -52,39 +53,82 @@ def apply_due_events(state: SimState, schedule:list[dict[str, Any]]) -> list[App
 
     return applied
 
+
 def apply_event(state: SimState, event: dict[str, Any]) -> AppliedEvent | None:
+    action = _schedule_action(event)
+    if action.endswith("_end"):
+        return None
 
-    kind = _event_kind(event)
-
-    if kind in evkind:
+    if _is_failure_action(action):
         return _apply_node_failure(state, event)
-    
+
+    kind = _legacy_event_kind(event)
+    if kind in _FAILURE_KINDS:
+        return _apply_node_failure(state, event)
+
     return None
+
+
+def _schedule_action(event: dict[str, Any]) -> str:
+    raw = event.get("action")
+    if isinstance(raw, str) and raw.strip():
+        return raw.strip().lower().replace("-", "_")
+    return ""
+
+
+def _is_failure_action(action: str) -> bool:
+    if not action:
+        return False
+    if action.endswith("_end"):
+        return False
+    if "node_failure" in action:
+        return True
+    if action.startswith("chaos_") and action.endswith("_failure"):
+        return True
+    return action in {"drone_failure", "fail_node", "failure", "node_failure"}
+
+
+def _legacy_event_kind(event: dict[str, Any]) -> str:
+    raw = (
+        event.get("kind")
+        or event.get("type")
+        or event.get("event_type")
+    )
+
+    if raw is None:
+        return "unknown"
+
+    return str(raw).lower().replace("-", "_")
+
 
 def _apply_node_failure(
     state: SimState,
     event: dict[str, Any],
 ) -> AppliedEvent | None:
-    
     target_id = _event_target_id(event)
 
     if target_id is None:
         return None
-    
+
     if target_id not in state.nodes:
         return None
-    
+
+    node = state.nodes[target_id]
+    if not node.is_active():
+        return None
+
     state.fail_node(target_id)
     event_id = _event_id(event)
 
     return AppliedEvent(
         event_id=event_id,
-        kind = _event_kind(event),
-        time_s = state.time_s,
-        target_id= target_id,
+        kind=_schedule_action(event) or _legacy_event_kind(event),
+        time_s=state.time_s,
+        target_id=target_id,
         message=f"Node {target_id} failed at t={state.time_s:.2f}s",
         payload=dict(event),
     )
+
 
 def _event_id(event: dict[str, Any]) -> str:
     raw = (
@@ -96,33 +140,22 @@ def _event_id(event: dict[str, Any]) -> str:
     if raw is not None:
         return str(raw)
 
-    kind = _event_kind(event)
+    payload = event.get("payload")
+    base: str | None = None
+    if isinstance(payload, dict):
+        nested = payload.get("event_id")
+        if nested is not None:
+            base = str(nested)
+
+    action = _schedule_action(event)
     target_id = _event_target_id(event) or "unknown"
     time_s = _event_time_s(event)
 
+    if base:
+        return f"{base}|{action}|{time_s}"
+
+    kind = _legacy_event_kind(event)
     return f"{kind}:{target_id}:{time_s}"
-
-
-def _event_kind(event: dict[str, Any]) -> str:
-    raw = (
-        event.get("kind")
-        or event.get("type")
-        or event.get("event_type")
-    )
-
-    if raw is None:
-        return "unknown"
-
-    normalized = str(raw).lower().replace("-", "_")
-
-    # make this tolerant of your compiler wording
-    if normalized in {"drone_failed", "drone_failure"}:
-        return "drone_failure"
-
-    if normalized in {"node_failed", "node_failure"}:
-        return "node_failure"
-
-    return normalized
 
 
 def _event_time_s(event: dict[str, Any]) -> float:
@@ -164,14 +197,15 @@ def _event_target_id(event: dict[str, Any]) -> str | None:
     return None
 
 
+def _entry_to_dict(item: Any) -> dict[str, Any]:
+    if isinstance(item, dict):
+        return dict(item)
+    if hasattr(item, "model_dump"):
+        return item.model_dump(mode="python")
+    raise TypeError(f"Schedule entry must be dict or model, got {type(item)!r}")
+
+
 def extract_runtime_schedule(compiled_scenario: Any) -> list[dict[str, Any]]:
-    """
-    Pull runtime schedule entries out of the compiled scenario.
-
-    This is tolerant because your compiler may store the schedule under
-    slightly different field names.
-    """
-
     scenario = _to_dict(compiled_scenario)
 
     candidates = [
@@ -194,7 +228,7 @@ def extract_runtime_schedule(compiled_scenario: Any) -> list[dict[str, Any]]:
 
     for candidate in candidates:
         if isinstance(candidate, list):
-            return [dict(item) for item in candidate]
+            return [_entry_to_dict(item) for item in candidate]
 
     return []
 
@@ -204,6 +238,6 @@ def _to_dict(value: Any) -> dict[str, Any]:
         return value
 
     if hasattr(value, "model_dump"):
-        return value.model_dump()
+        return value.model_dump(mode="python")
 
     raise TypeError(f"Expected dict or Pydantic model, got {type(value)!r}")

@@ -5,7 +5,7 @@
     "title": "untitled-scenario",
     "description": "",
     "seed": 0,
-    "created_at": "2026-04-22T20:48:27.305Z",
+    "created_at": "2026-04-23T23:29:53.501Z",
     "authoring_version": "editor-ui"
   },
   "map": {
@@ -25,8 +25,67 @@
       }
     ]
   },
-  "entities": [],
-  "obstacles": [],
+  "entities": [
+    {
+      "id": "client-597029c4",
+      "type": "client",
+      "label": "Client",
+      "position": {
+        "x": 232.0,
+        "y": 138.0
+      },
+      "tags": [],
+      "demand_profile": "telemetry"
+    },
+    {
+      "id": "drone-b2e188f9",
+      "type": "drone",
+      "label": "Drone",
+      "position": {
+        "x": 447.0,
+        "y": 132.0
+      },
+      "tags": [
+        "editor:battery_pct=100"
+      ],
+      "battery_capacity_mah": 100.0,
+      "max_speed_mps": 15.0,
+      "comms_range_m": 520.0,
+      "waypoint_step_m": 25.0
+    },
+    {
+      "id": "gateway-9d68afbd",
+      "type": "gateway",
+      "label": "Gateway",
+      "position": {
+        "x": 560.0,
+        "y": 145.0
+      },
+      "tags": [
+        "editor:uplink=fiber"
+      ],
+      "uplink_capacity_mbps": 250.0,
+      "comms_range_m": 260.0
+    }
+  ],
+  "obstacles": [
+    {
+      "id": "building-512e7380",
+      "type": "building",
+      "label": "Building",
+      "attenuation_db": 0.8,
+      "blocks_flight": true,
+      "shape": "rect",
+      "position": {
+        "x": 353.0,
+        "y": 135.0
+      },
+      "size": {
+        "width": 120.0,
+        "height": 80.0
+      }
+    }
+  ],
   "demand_zones": [],
   "traffic_classes": [],
   "scheduled_traffic": [],

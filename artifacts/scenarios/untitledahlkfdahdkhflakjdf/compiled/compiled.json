@@ -1,0 +1,171 @@
+{
+  "compilation_metadata": {
+    "source_scenario_id": "untitledahlkfdahdkhflakjdf",
+    "source_hash": "7e853a4b8240d79abc96ffe5742fa269aa282209b4959768f45e79d67568d209",
+    "compiler_version": "0.1.0",
+    "config_hash": "77e70ea0dfd6e7703003a96edecae373efabffdd01e424b7e32a23a931e08b2f",
+    "seed": 0,
+    "generated_at": "2026-04-23T23:39:51Z"
+  },
+  "normalized_entities": [
+    {
+      "id": "client-44ea1ac6",
+      "type": "client",
+      "x": 817.0959957466553,
+      "y": 455.1263173208741,
+      "properties": {
+        "label": "Client",
+        "demand_profile": "telemetry"
+      }
+    },
+    {
+      "id": "client-6227f920",
+      "type": "client",
+      "x": 733.9658713002256,
+      "y": 159.6797199079244,
+      "properties": {
+        "label": "Client",
+        "demand_profile": "telemetry"
+      }
+    },
+    {
+      "id": "drone-c58e5bd6",
+      "type": "drone",
+      "x": 304.0,
+      "y": 128.0,
+      "properties": {
+        "label": "Drone",
+        "tags_csv": "editor:battery_pct=100",
+        "battery_capacity_mah": 100.0,
+        "max_speed_mps": 15.0,
+        "comms_range_m": 171.0,
+        "waypoint_step_m": 25.0
+      }
+    },
+    {
+      "id": "gateway-ed6a9f85",
+      "type": "gateway",
+      "x": 219.0,
+      "y": 127.0,
+      "properties": {
+        "label": "Gateway",
+        "tags_csv": "editor:uplink=fiber",
+        "uplink_capacity_mbps": 250.0,
+        "comms_range_m": 260.0
+      }
+    }
+  ],
+  "obstacle_index": [
+    {
+      "obstacle_id": "building-b3014eeb",
+      "cell_keys": [
+        "2:10",
+        "2:7",
+        "2:8",
+        "2:9",
+        "3:10",
+        "3:7",
+        "3:8",
+        "3:9",
+        "4:10",
+        "4:7",
+        "4:8",
+        "4:9"
+      ],
+      "los_penalty": 5.8
+    }
+  ],
+  "candidate_graph_edges": [
+    {
+      "src": "gateway-ed6a9f85",
+      "dst": "drone-c58e5bd6",
+      "distance_m": 85.006,
+      "estimated_penalty": 0.0
+    }
+  ],
+  "waypoint_candidates": [
+    {
+      "drone_id": "drone-c58e5bd6",
+      "point": {
+        "x": 304.0,
+        "y": 128.0
+      },
+      "move_cost": 0.0
+    },
+    {
+      "drone_id": "drone-c58e5bd6",
+      "point": {
+        "x": 279.0,
+        "y": 128.0
+      },
+      "move_cost": 25.0
+    },
+    {
+      "drone_id": "drone-c58e5bd6",
+      "point": {
+        "x": 286.322,
+        "y": 145.678
+      },
+      "move_cost": 25.0
+    },
+    {
+      "drone_id": "drone-c58e5bd6",
+      "point": {
+        "x": 286.322,
+        "y": 110.322
+      },
+      "move_cost": 25.0
+    },
+    {
+      "drone_id": "drone-c58e5bd6",
+      "point": {
+        "x": 304.0,
+        "y": 153.0
+      },
+      "move_cost": 25.0
+    },
+    {
+      "drone_id": "drone-c58e5bd6",
+      "point": {
+        "x": 304.0,
+        "y": 103.0
+      },
+      "move_cost": 25.0
+    },
+    {
+      "drone_id": "drone-c58e5bd6",
+      "point": {
+        "x": 321.678,
+        "y": 145.678
+      },
+      "move_cost": 25.0
+    },
+    {
+      "drone_id": "drone-c58e5bd6",
+      "point": {
+        "x": 321.678,
+        "y": 110.322
+      },
+      "move_cost": 25.0
+    },
+    {
+      "drone_id": "drone-c58e5bd6",
+      "point": {
+        "x": 329.0,
+        "y": 128.0
+      },
+      "move_cost": 25.0
+    }
+  ],
+  "mobility_constraints": [
+    {
+      "drone_id": "drone-c58e5bd6",
+      "max_speed_mps": 15.0,
+      "movement_bounds": {
+        "width": 2000.0,
+        "height": 1200.0
+      }
+    }
+  ],
+  "runtime_schedule": []
+}

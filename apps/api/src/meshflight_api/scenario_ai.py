@@ -13,37 +13,26 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from meshflight_schema import ScenarioSource
 
 from .ollama_client import OllamaClient, OllamaClientError
-
-
-AIScenarioProviderName = Literal["ollama", "gemini", "openai"]
-
-SUPPORTED_ENTITY_TYPES = ("drone", "gateway", "client")
-SUPPORTED_OBSTACLE_TYPES = ("building", "wall", "vegetation")
+from .scenario_plan import (
+    AIScenarioProviderName,
+    MeshFlightScenarioPlanV1,
+    ScenarioAIAssistRequest,
+    ScenarioAIValidationError,
+    ScenarioCanvasRequest,
+    _infer_layout_from_prompt,
+    apply_update_metadata_preserve,
+    build_scenario_plan_prompt,
+    build_scenario_plan_repair_prompt,
+    merge_meshflight_plan_with_user_prompt,
+    scenario_plan_to_source,
+    validate_editor_supported_scenario,
+)
 ROOT_DIR = Path(__file__).resolve().parents[4]
 AI_USAGE_DIR = ROOT_DIR / "artifacts" / "reports" / "ai_usage"
 
 
 class ScenarioAIProviderError(RuntimeError):
     pass
-
-
-class ScenarioAIValidationError(ValueError):
-    pass
-
-
-class ScenarioCanvasRequest(BaseModel):
-    width: float = Field(gt=0)
-    height: float = Field(gt=0)
-
-
-class ScenarioAIAssistRequest(BaseModel):
-    provider: AIScenarioProviderName = "ollama"
-    mode: Literal["generate", "update"]
-    prompt: str = Field(min_length=1)
-    existing_scenario: ScenarioSource | None = None
-    existing_scenario_id: str | None = None
-    canvas: ScenarioCanvasRequest | None = None
-    conversation: list[str] = Field(default_factory=list)
 
 
 class AIAssistEvent(BaseModel):
@@ -59,6 +48,11 @@ class AIAssistDiagnostics(BaseModel):
     model: str | None = None
     base_url: str | None = None
     events: list[AIAssistEvent] = Field(default_factory=list)
+    plan_repair_passes: int = 0
+    deterministic_plan_builder_used: bool = False
+    llm_invocations: int = 0
+    heuristic_prompt_fallback_used: bool = False
+    raw_llm_logged: bool = False
     schema_repair_passes: int = 0
     synthetic_fallback_used: bool = False
     alignment_pass_attempted: bool = False
@@ -86,49 +80,6 @@ class ScenarioAIAssistHealthResponse(BaseModel):
     base_url: str | None = Field(default=None, alias="baseUrl")
     model: str | None = None
     reason: str | None = None
-
-
-SCENARIO_RESPONSE_EXAMPLE = {
-    "doable": True,
-    "mode": "generate",
-    "scenario": {
-        "metadata": {
-            "scenario_id": "small-emergency-response-test",
-            "schema_version": "0.1.0",
-            "title": "small-emergency-response-test",
-            "description": "Small emergency response scenario with a relay chain around a blocked corridor.",
-            "seed": 1,
-            "created_at": "2026-01-01T00:00:00Z",
-            "authoring_version": "ai-assistant",
-        },
-        "map": {
-            "width": 2000,
-            "height": 1200,
-            "grid_resolution": 20,
-            "unit_scale_meters": 1,
-            "origin": {"x": 0, "y": 0},
-            "layers": [{"id": "base", "name": "Base", "visible": True}],
-        },
-        "entities": [
-            {
-                "id": "gateway-1",
-                "type": "gateway",
-                "label": "Gateway 1",
-                "position": {"x": 200, "y": 600},
-                "tags": ["editor:uplink=fiber"],
-                "uplink_capacity_mbps": 250,
-                "comms_range_m": 260,
-            }
-        ],
-        "obstacles": [],
-        "demand_zones": [],
-        "traffic_classes": [],
-        "scheduled_traffic": [],
-        "chaos_events": [],
-    },
-    "summary": "Created a valid MeshFlight source scenario.",
-    "warnings": [],
-}
 
 
 def check_prompt_doability(prompt: str) -> tuple[bool, str | None, str | None]:
@@ -187,15 +138,24 @@ def generate_ai_assisted_scenario(
     if request.mode == "update" and request.existing_scenario is None:
         raise ScenarioAIValidationError("Update mode requires an existing source scenario.")
 
+    plan_request = request
     provider = create_ai_provider(request.provider)
     base_url, model = _provider_display_config(request.provider)
-    run_events: list[AIAssistEvent] = [AIAssistEvent(name="llm_start", detail=f"{request.provider} generate")]
-    raw = provider.complete_assist_response(request)
-    repair_count = 0
+    run_events: list[AIAssistEvent] = [AIAssistEvent(name="llm_start", detail=f"{request.provider} plan")]
+
+    raw = provider.complete_scenario_plan(plan_request)
+    raw_logged = _maybe_log_raw_llm_output("llm_plan_raw", raw)
+    run_events.append(AIAssistEvent(name="llm_plan_received", detail="Received JSON plan from model."))
+
+    llm_invocations = 1
     try:
-        response, repair_count = _coerce_valid_assist_response(provider, request, raw)
+        plan, plan_repairs = _coerce_valid_scenario_plan(
+            provider,
+            plan_request,
+            raw,
+        )
     except ScenarioAIValidationError as error:
-        if request.mode == "generate" and _allow_synthetic_fallback():
+        if _allow_synthetic_fallback():
             fallback = _build_prompt_driven_generate_response(request)
             return fallback.model_copy(
                 update={
@@ -208,22 +168,28 @@ def generate_ai_assisted_scenario(
                         + [
                             AIAssistEvent(
                                 name="llm_error",
-                                detail="Primary model output failed schema validation after repair attempts.",
+                                detail="The model could not return a valid scenario plan after repair attempts.",
                             ),
-                            AIAssistEvent(name="synthetic_fallback", detail=str(error)),
+                            AIAssistEvent(name="heuristic_prompt_fallback", detail=str(error)),
                         ],
-                        schema_repair_passes=repair_count,
+                        plan_repair_passes=0,
+                        deterministic_plan_builder_used=False,
+                        llm_invocations=llm_invocations,
+                        heuristic_prompt_fallback_used=True,
+                        raw_llm_logged=raw_logged,
+                        schema_repair_passes=0,
                         synthetic_fallback_used=True,
+                        alignment_pass_attempted=False,
+                        alignment_pass_succeeded=False,
                     )
                 }
             )
-
         return ScenarioAIAssistResponse(
             doable=False,
             mode=request.mode,
             reason=(
-                "The model returned invalid scenario JSON repeatedly and synthetic fallback is disabled. "
-                "Enable AI_ASSIST_ALLOW_SYNTHETIC_FALLBACK=true or try a different model."
+                "The model could not return a valid scenario plan JSON. "
+                "Enable AI_ASSIST_ALLOW_SYNTHETIC_FALLBACK=true to allow a local prompt-based fallback, or try a different model."
             ),
             warnings=[],
             ai_diagnostics=AIAssistDiagnostics(
@@ -233,77 +199,61 @@ def generate_ai_assisted_scenario(
                 base_url=base_url,
                 events=run_events
                 + [
-                    AIAssistEvent(
-                        name="llm_error",
-                        detail="Primary model output failed schema validation after repair attempts.",
-                    ),
+                    AIAssistEvent(name="llm_error", detail="Invalid scenario plan JSON from model."),
                     AIAssistEvent(name="validation_failure", detail=str(error)),
                 ],
-                schema_repair_passes=repair_count,
+                plan_repair_passes=0,
+                deterministic_plan_builder_used=False,
+                llm_invocations=llm_invocations,
+                heuristic_prompt_fallback_used=False,
+                raw_llm_logged=raw_logged,
+                schema_repair_passes=0,
                 synthetic_fallback_used=False,
+                alignment_pass_attempted=False,
+                alignment_pass_succeeded=False,
             ),
         )
 
-    if not response.doable:
-        repaired_raw = provider.repair_assist_response(
-            request=request,
-            invalid_payload=response.model_dump(mode="json"),
-            validation_error=(
-                "The request is representable in the current editor. Do not ask the user to rewrite it. "
-                "Infer missing defaults, separate overlapping objects, fix unrealistic spacing, and return a complete valid scenario "
-                "unless the prompt is truly unsupported by the editor feature set."
+    if not plan.feasible:
+        return ScenarioAIAssistResponse(
+            doable=False,
+            mode=request.mode,
+            reason=plan.reason or "The model could not map this request onto supported objects.",
+            suggested_prompt=plan.suggested_user_prompt,
+            summary=plan.summary,
+            warnings=[],
+            ai_diagnostics=AIAssistDiagnostics(
+                provider=request.provider,
+                llm_used=True,
+                model=model,
+                base_url=base_url,
+                events=run_events
+                + [AIAssistEvent(name="llm_plan_rejected", detail=plan.reason or "Model marked the plan as infeasible.")],
+                plan_repair_passes=plan_repairs,
+                deterministic_plan_builder_used=False,
+                llm_invocations=llm_invocations,
+                heuristic_prompt_fallback_used=False,
+                raw_llm_logged=raw_logged,
+                schema_repair_passes=plan_repairs,
+                synthetic_fallback_used=False,
+                alignment_pass_attempted=False,
+                alignment_pass_succeeded=False,
             ),
         )
-        run_events.append(
-            AIAssistEvent(
-                name="soft_rejection_repair",
-                detail="Retried a model rejection by forcing the provider to infer defaults and fix layout issues.",
-            )
-        )
-        response, extra_repairs = _coerce_valid_assist_response(
-            provider, request, repaired_raw, starting_repair_count=repair_count
-        )
-        repair_count = extra_repairs
 
-        if not response.doable:
-            return response.model_copy(
-                update={
-                    "ai_diagnostics": AIAssistDiagnostics(
-                        provider=request.provider,
-                        llm_used=True,
-                        model=model,
-                        base_url=base_url,
-                        events=run_events
-                        + [AIAssistEvent(name="llm_rejected", detail="Model marked prompt as not doable.")],
-                        schema_repair_passes=repair_count,
-                        synthetic_fallback_used=False,
-                    )
-                }
-            )
-
-    if response.scenario is None:
-        raise ScenarioAIValidationError(
-            "The selected LLM marked the request as doable but did not return a scenario."
+    plan = merge_meshflight_plan_with_user_prompt(plan, request.prompt.strip())
+    run_events.append(
+        AIAssistEvent(
+            name="plan_enriched",
+            detail="Compiled object counts from the user prompt (model `counts` are ignored to avoid stale templates).",
         )
+    )
 
     try:
-        validated_scenario = validate_editor_supported_scenario(response.scenario)
-        alignment_attempted = True
-        aligned_response = _attempt_prompt_alignment(provider, request, response, validated_scenario)
-        alignment_succeeded = aligned_response is not None
-        if aligned_response is not None:
-            response = aligned_response
-            validated_scenario = validate_editor_supported_scenario(aligned_response.scenario)
-            run_events.append(AIAssistEvent(name="alignment_pass", detail="Prompt-alignment pass succeeded."))
-        else:
-            run_events.append(
-                AIAssistEvent(
-                    name="alignment_pass",
-                    detail="Prompt-alignment pass ran but the model did not return a valid aligned payload, so the pre-alignment scenario is kept.",
-                )
-            )
+        built = scenario_plan_to_source(plan_request, plan)
+        built = apply_update_metadata_preserve(plan_request, built)
     except ScenarioAIValidationError as error:
-        if request.mode == "generate" and _allow_synthetic_fallback():
+        if _allow_synthetic_fallback():
             fallback = _build_prompt_driven_generate_response(request)
             return fallback.model_copy(
                 update={
@@ -314,58 +264,80 @@ def generate_ai_assisted_scenario(
                         base_url=base_url,
                         events=run_events
                         + [
-                            AIAssistEvent(name="post_validation_failure", detail=str(error)),
-                            AIAssistEvent(name="synthetic_fallback", detail="Fallback used after validation failure."),
+                            AIAssistEvent(
+                                name="build_error",
+                                detail="Deterministic build failed; used prompt heuristics instead.",
+                            ),
+                            AIAssistEvent(name="heuristic_prompt_fallback", detail=str(error)),
                         ],
-                        schema_repair_passes=repair_count,
+                        plan_repair_passes=plan_repairs,
+                        deterministic_plan_builder_used=True,
+                        llm_invocations=llm_invocations,
+                        heuristic_prompt_fallback_used=True,
+                        raw_llm_logged=raw_logged,
+                        schema_repair_passes=plan_repairs,
                         synthetic_fallback_used=True,
+                        alignment_pass_attempted=False,
+                        alignment_pass_succeeded=False,
                     )
                 }
             )
         return ScenarioAIAssistResponse(
             doable=False,
             mode=request.mode,
-            reason="Generated scenario failed editor validation and fallback is disabled.",
+            reason="A valid plan was returned, but compiling it into a scenario failed, and heuristics are disabled.",
             warnings=[],
             ai_diagnostics=AIAssistDiagnostics(
                 provider=request.provider,
                 llm_used=True,
                 model=model,
                 base_url=base_url,
-                events=run_events + [AIAssistEvent(name="post_validation_failure", detail=str(error))],
-                schema_repair_passes=repair_count,
+                events=run_events + [AIAssistEvent(name="build_error", detail=str(error))],
+                plan_repair_passes=plan_repairs,
+                deterministic_plan_builder_used=True,
+                llm_invocations=llm_invocations,
+                heuristic_prompt_fallback_used=False,
+                raw_llm_logged=raw_logged,
+                schema_repair_passes=plan_repairs,
                 synthetic_fallback_used=False,
+                alignment_pass_attempted=False,
+                alignment_pass_succeeded=False,
             ),
         )
 
-    if request.mode == "update" and request.existing_scenario is not None:
-        existing_metadata = request.existing_scenario.metadata
-        validated_scenario = validated_scenario.model_copy(
-            update={
-                "metadata": validated_scenario.metadata.model_copy(
-                    update={
-                        "scenario_id": existing_metadata.scenario_id,
-                        "created_at": existing_metadata.created_at,
-                    }
+    summary = (plan.summary or "").strip() or "Compiled a valid scenario from the model’s structured plan on the server."
+    warnings: list[str] = [
+        "The model produced a small JSON plan; MeshFlight built coordinates and schema details deterministically in the API."
+    ]
+
+    return ScenarioAIAssistResponse(
+        doable=True,
+        mode=request.mode,
+        scenario=built,
+        summary=summary,
+        warnings=warnings,
+        ai_diagnostics=AIAssistDiagnostics(
+            provider=request.provider,
+            llm_used=True,
+            model=model,
+            base_url=base_url,
+            events=run_events
+            + [
+                AIAssistEvent(
+                    name="plan_compiled",
+                    detail=f"Deterministic build succeeded after {plan_repairs} plan repair pass(es).",
                 )
-            }
-        )
-
-    return response.model_copy(
-        update={
-            "scenario": validated_scenario,
-            "ai_diagnostics": AIAssistDiagnostics(
-                provider=request.provider,
-                llm_used=True,
-                model=model,
-                base_url=base_url,
-                events=run_events,
-                schema_repair_passes=repair_count,
-                synthetic_fallback_used=False,
-                alignment_pass_attempted=alignment_attempted,
-                alignment_pass_succeeded=alignment_succeeded,
-            ),
-        }
+            ],
+            plan_repair_passes=plan_repairs,
+            deterministic_plan_builder_used=True,
+            llm_invocations=llm_invocations,
+            heuristic_prompt_fallback_used=False,
+            raw_llm_logged=raw_logged,
+            schema_repair_passes=plan_repairs,
+            synthetic_fallback_used=False,
+            alignment_pass_attempted=False,
+            alignment_pass_succeeded=False,
+        ),
     )
 
 
@@ -376,245 +348,115 @@ def _allow_synthetic_fallback() -> bool:
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _attempt_prompt_alignment(
+def _maybe_log_raw_llm_output(label: str, payload: object) -> bool:
+    raw = os.getenv("AI_DEBUG_LLM", "").strip() or os.getenv("MESHFLIGHT_AI_DEBUG_LLM", "").strip()
+    if raw.lower() not in {"1", "true", "yes", "on"}:
+        return False
+    if isinstance(payload, dict):
+        text = json.dumps(payload, indent=2, ensure_ascii=True)
+    else:
+        text = str(payload)
+    # Keep to one line in normal logs, but this is an explicit local-dev escape hatch.
+    print(f"[meshflight-ai] {label}:\n{text}")
+    return True
+
+
+def _coerce_valid_scenario_plan(
     provider: "ScenarioProviderProtocol",
     request: ScenarioAIAssistRequest,
-    response: ScenarioAIAssistResponse,
-    scenario: ScenarioSource,
-) -> ScenarioAIAssistResponse | None:
-    """
-    Ask the provider for a generic prompt-alignment pass so we don't hardcode
-    one-off constraints in Python. If the returned payload is invalid, keep the
-    already validated scenario.
-    """
-    try:
-        aligned_raw = provider.repair_assist_response(
-            request=request,
-            invalid_payload=response.model_dump(mode="json"),
-            validation_error=(
-                "Perform one prompt-alignment pass: keep schema-valid structure, but adjust "
-                "positions/metadata so the scenario better satisfies the user's natural-language request. "
-                "Handle all explicit constraints in the prompt. Return full JSON payload."
-            ),
-        )
-        aligned_response, _ = _coerce_valid_assist_response(provider, request, aligned_raw)
-        if not aligned_response.doable or aligned_response.scenario is None:
-            return None
-        return aligned_response
-    except ScenarioAIValidationError:
-        return None
+    raw: dict[str, object],
+    *,
+    starting_repair_count: int = 0,
+) -> tuple[MeshFlightScenarioPlanV1, int]:
+    candidate_payload: dict[str, object] = raw
+    last_error: Exception | None = None
+    repair_count = starting_repair_count
+
+    for attempt in range(4):
+        try:
+            plan = MeshFlightScenarioPlanV1.model_validate(candidate_payload)
+            return plan, repair_count
+        except (ValidationError, ValueError) as error:
+            last_error = error
+            if attempt >= 3:
+                break
+            repair_count += 1
+            candidate_payload = provider.repair_scenario_plan(
+                request=request,
+                invalid_payload=candidate_payload,
+                validation_error=(
+                    f"Attempt {attempt + 1} failed validation.\n{error}\n"
+                    "Return a complete JSON object matching the MeshFlight scenario plan schema."
+                ),
+            )
+
+    raise ScenarioAIValidationError(
+        f"{provider.display_name} returned an invalid scenario plan JSON."
+    ) from last_error
 
 
 def _build_prompt_driven_generate_response(
     request: ScenarioAIAssistRequest,
 ) -> ScenarioAIAssistResponse:
-    canvas_width, canvas_height = _preferred_canvas(request)
-    prompt = request.prompt
-
-    gateway_count = _extract_count(prompt, ("gateway", "gateways"), default=1, minimum=1, maximum=4)
-    drone_count = _extract_count(prompt, ("drone", "drones"), default=3, minimum=1, maximum=24)
-    client_count = _extract_count(prompt, ("client", "clients"), default=6, minimum=1, maximum=80)
-    building_count = _extract_count(prompt, ("building", "buildings"), default=1, minimum=0, maximum=16)
-    vegetation_count = _extract_count(
-        prompt,
-        ("vegetation zone", "vegetation zones", "tree zone", "tree zones", "interference zone", "interference zones"),
-        default=1,
-        minimum=0,
-        maximum=16,
+    prompt = request.prompt.strip()
+    layout = _infer_layout_from_prompt(prompt) or "gateway_left_drone_relay_clients_right"
+    plan = MeshFlightScenarioPlanV1(
+        request_mode=request.mode,
+        feasible=True,
+        summary="Heuristic fallback plan (no LLM JSON).",
+        title=_extract_scenario_name(prompt),
+        layout=layout,  # type: ignore[arg-type]
+        notes="Prompt-driven scenario generated by backend synthesis after schema validation failure.",
     )
-    scenario_name = _extract_scenario_name(prompt) or "ai-generated-scenario"
-    scenario_id = _slugify_scenario_id(scenario_name)
-    now_iso = datetime.now(UTC).isoformat().replace("+00:00", "Z")
-
-    left_x = canvas_width * 0.18
-    right_x = canvas_width * 0.72
-    center_y = canvas_height * 0.5
-    relay_start_x = canvas_width * 0.33
-    relay_end_x = canvas_width * 0.62
-
-    entities: list[dict[str, object]] = []
-    for index in range(gateway_count):
-        y = _spread_value(index, gateway_count, center_y - 120, center_y + 120)
-        entities.append(
-            {
-                "id": f"gateway-{index + 1}",
-                "type": "gateway",
-                "label": f"Gateway {index + 1}",
-                "position": {"x": left_x, "y": y},
-                "tags": ["editor:uplink=fiber"],
-                "uplink_capacity_mbps": 300,
-                "comms_range_m": 260,
-            }
-        )
-
-    for index in range(drone_count):
-        x = _spread_value(index, drone_count, relay_start_x, relay_end_x)
-        y = _spread_value(index, drone_count, center_y - 80, center_y + 80)
-        entities.append(
-            {
-                "id": f"drone-{index + 1}",
-                "type": "drone",
-                "label": f"Drone {index + 1}",
-                "position": {"x": x, "y": y},
-                "tags": ["editor:battery_pct=90"],
-                "battery_capacity_mah": 110,
-                "max_speed_mps": 15,
-                "comms_range_m": 190,
-                "waypoint_step_m": 25,
-            }
-        )
-
-    demand_profiles = ["telemetry", "video", "telemetry", "control", "telemetry", "video"]
-    for index in range(client_count):
-        x = _spread_value(index, client_count, right_x - 80, right_x + 80)
-        y = _spread_value(index, client_count, center_y - 180, center_y + 180)
-        entities.append(
-            {
-                "id": f"client-{index + 1}",
-                "type": "client",
-                "label": f"Client {index + 1}",
-                "position": {"x": x, "y": y},
-                "tags": [],
-                "demand_profile": demand_profiles[index % len(demand_profiles)],
-            }
-        )
-
-    obstacles: list[dict[str, object]] = []
-    for index in range(building_count):
-        obstacles.append(
-            {
-                "id": f"building-{index + 1}",
-                "type": "building",
-                "label": f"Building {index + 1}",
-                "attenuation_db": 10,
-                "blocks_flight": True,
-                "shape": "rect",
-                "position": {
-                    "x": _spread_value(index, building_count, canvas_width * 0.44, canvas_width * 0.54),
-                    "y": _spread_value(index, building_count, center_y - 120, center_y + 120),
-                },
-                "size": {"width": 140, "height": 190},
-            }
-        )
-
-    for index in range(vegetation_count):
-        obstacles.append(
-            {
-                "id": f"vegetation-{index + 1}",
-                "type": "vegetation",
-                "label": (
-                    f"Interference Zone {index + 1}"
-                    if "interference" in prompt.lower()
-                    else f"Vegetation Zone {index + 1}"
-                ),
-                "attenuation_db": 7,
-                "blocks_flight": False,
-                "shape": "circle",
-                "center": {
-                    "x": _spread_value(index, vegetation_count, canvas_width * 0.58, canvas_width * 0.7),
-                    "y": _spread_value(index, vegetation_count, center_y - 90, center_y + 90),
-                },
-                "radius": 90,
-            }
-        )
-
-    demand_zones = [
-        {
-            "id": "demand-zone-1",
-            "label": "Primary Demand",
-            "center": {"x": right_x, "y": center_y},
-            "radius_m": 120,
-            "priority": 7,
-        }
-    ]
-
-    scenario_payload = {
-        "metadata": {
-            "scenario_id": scenario_id,
-            "schema_version": "0.1.0",
-            "title": scenario_name,
-            "description": "Prompt-driven scenario generated by backend synthesis after schema validation failure.",
-            "seed": 1,
-            "created_at": now_iso,
-            "authoring_version": "ai-assistant",
-        },
-        "map": {
-            "width": canvas_width,
-            "height": canvas_height,
-            "grid_resolution": 20,
-            "unit_scale_meters": 1,
-            "origin": {"x": 0, "y": 0},
-            "layers": [{"id": "base", "name": "Base", "visible": True}],
-        },
-        "entities": entities,
-        "obstacles": obstacles,
-        "demand_zones": demand_zones,
-        "traffic_classes": [],
-        "scheduled_traffic": [],
-        "chaos_events": [],
-    }
-
-    scenario = ScenarioSource.model_validate(scenario_payload)
+    plan = merge_meshflight_plan_with_user_prompt(plan, prompt)
+    scenario = scenario_plan_to_source(request, plan)
     scenario = validate_editor_supported_scenario(scenario)
+    scenario = apply_update_metadata_preserve(request, scenario)
+
+    c = plan.counts
+    gw = int(c.get("gateways", 1))
+    dr = int(c.get("drones", 1))
+    cl = int(c.get("clients", 1))
+    bd = int(c.get("buildings", 0))
+    veg = int(c.get("vegetation", 0))
+    dz = int(c.get("demand_zones", 0))
+    title = scenario.metadata.title
+
     return ScenarioAIAssistResponse(
         doable=True,
-        mode="generate",
+        mode=request.mode,
         scenario=scenario,
         summary=(
-            f"Created {scenario_name} with {gateway_count} gateway(s), {drone_count} drone(s), "
-            f"{client_count} client(s), {building_count} building obstacle(s), and {vegetation_count} vegetation zone(s)."
+            f"Created {title} with {gw} gateway(s), {dr} drone(s), {cl} client(s), "
+            f"{bd} building obstacle(s), {veg} vegetation zone(s), {dz} demand zone(s), "
+            f"and {len(scenario.chaos_events)} chaos event(s)."
         ),
         warnings=[
-            "Model output did not pass schema validation, so the backend generated a schema-valid scenario directly from your prompt constraints."
+            "No usable JSON plan was produced, so the API fell back to prompt-derived counts plus the same "
+            "deterministic scenario builder used for valid plans (including contextual chaos events)."
         ],
         ai_diagnostics=AIAssistDiagnostics(
             provider=request.provider,
             llm_used=False,
             model=os.getenv("OLLAMA_MODEL", "").strip() or None,
             base_url=os.getenv("OLLAMA_BASE_URL", "").strip() or None,
-            events=[AIAssistEvent(name="synthetic_generator", detail="Schema-safe synthesis from prompt counts.")],
+            events=[
+                AIAssistEvent(
+                    name="heuristic_prompt_generator",
+                    detail="Built via merge_meshflight_plan_with_user_prompt + scenario_plan_to_source (no LLM scenario JSON).",
+                )
+            ],
+            plan_repair_passes=0,
+            deterministic_plan_builder_used=True,
+            llm_invocations=0,
+            heuristic_prompt_fallback_used=True,
+            raw_llm_logged=False,
             schema_repair_passes=0,
             synthetic_fallback_used=True,
+            alignment_pass_attempted=False,
+            alignment_pass_succeeded=False,
         ),
     )
-
-
-_NUMBER_WORDS = {
-    "zero": 0,
-    "one": 1,
-    "two": 2,
-    "three": 3,
-    "four": 4,
-    "five": 5,
-    "six": 6,
-    "seven": 7,
-    "eight": 8,
-    "nine": 9,
-    "ten": 10,
-    "eleven": 11,
-    "twelve": 12,
-}
-
-
-def _extract_count(
-    prompt: str,
-    aliases: tuple[str, ...],
-    *,
-    default: int,
-    minimum: int,
-    maximum: int,
-) -> int:
-    lowered = prompt.lower()
-    for alias in aliases:
-        pattern = re.compile(
-            rf"(?:\b(\d+)\b|\b({'|'.join(_NUMBER_WORDS.keys())})\b)\s+{re.escape(alias)}\b"
-        )
-        match = pattern.search(lowered)
-        if match:
-            digit, word = match.groups()
-            value = int(digit) if digit else _NUMBER_WORDS.get(word, default)
-            return max(minimum, min(maximum, value))
-    return max(minimum, min(maximum, default))
 
 
 def _extract_scenario_name(prompt: str) -> str | None:
@@ -632,13 +474,6 @@ def _slugify_scenario_id(name: str) -> str:
     return slug or "ai-generated-scenario"
 
 
-def _spread_value(index: int, count: int, start: float, end: float) -> float:
-    if count <= 1:
-        return round((start + end) / 2, 2)
-    fraction = index / (count - 1)
-    return round(start + (end - start) * fraction, 2)
-
-
 def get_ai_assist_health(
     provider_name: AIScenarioProviderName | None = None,
 ) -> ScenarioAIAssistHealthResponse:
@@ -652,224 +487,10 @@ def get_ai_assist_health(
         return ScenarioAIAssistHealthResponse(
             provider=selected_provider,
             available=False,
-            base_url=base_url,
+            baseUrl=base_url,
             model=model,
             reason=str(error),
         )
-
-
-def _coerce_valid_assist_response(
-    provider: "ScenarioProviderProtocol",
-    request: ScenarioAIAssistRequest,
-    raw: dict[str, object],
-    *,
-    starting_repair_count: int = 0,
-) -> tuple[ScenarioAIAssistResponse, int]:
-    candidate_payload = raw
-    last_error: Exception | None = None
-    repair_count = starting_repair_count
-
-    for attempt in range(4):
-        try:
-            response = ScenarioAIAssistResponse.model_validate(candidate_payload)
-            return _validate_semantic_response(response, request), repair_count
-        except (ValidationError, ScenarioAIValidationError) as error:
-            last_error = error
-            if attempt >= 3:
-                break
-            repair_count += 1
-            candidate_payload = provider.repair_assist_response(
-                request=request,
-                invalid_payload=candidate_payload,
-                validation_error=(
-                    f"Attempt {attempt + 1} failed validation.\n"
-                    f"{error}\n"
-                    "Return a complete valid payload matching the required schema exactly."
-                ),
-            )
-
-    raise ScenarioAIValidationError(
-        f"{provider.display_name} returned an invalid scenario payload that does not match the MeshFlight schema."
-    ) from last_error
-
-
-def _validate_semantic_response(
-    response: ScenarioAIAssistResponse,
-    request: ScenarioAIAssistRequest,
-) -> ScenarioAIAssistResponse:
-    if response.mode != request.mode:
-        raise ScenarioAIValidationError(
-            f"The selected LLM returned mode '{response.mode}' for a '{request.mode}' request."
-        )
-
-    if response.doable and response.scenario is None:
-        raise ScenarioAIValidationError(
-            "The selected LLM marked the request as doable but omitted the scenario."
-        )
-
-    if not response.doable and not (response.reason and response.reason.strip()):
-        raise ScenarioAIValidationError(
-            "The selected LLM marked the request as not doable but did not include a reason."
-        )
-
-    return response
-
-
-def build_ai_output_schema_summary() -> str:
-    return json.dumps(
-        {
-            "type": "object",
-            "required": ["doable", "mode"],
-            "properties": {
-                "doable": "boolean",
-                "mode": '"generate" | "update"',
-                "scenario": {
-                    "type": "ScenarioSource or null",
-                    "requiredWhenDoable": [
-                        "metadata",
-                        "map",
-                        "entities",
-                        "obstacles",
-                        "demand_zones",
-                        "traffic_classes",
-                        "scheduled_traffic",
-                        "chaos_events",
-                    ],
-                },
-                "summary": "string or null",
-                "warnings": "string[]",
-                "reason": "string or null",
-                "suggested_prompt": "string or null",
-            },
-        },
-        indent=2,
-    )
-
-
-def build_ai_prompt(request: ScenarioAIAssistRequest) -> str:
-    existing_scenario_json = (
-        request.existing_scenario.model_dump_json(indent=2)
-        if request.existing_scenario is not None
-        else "null"
-    )
-    canvas_width, canvas_height = _preferred_canvas(request)
-    conversation_history = (
-        "\n".join(f"- {entry}" for entry in request.conversation if entry.strip())
-        if request.conversation
-        else "none"
-    )
-
-    return f"""
-You generate MeshFlight scenario JSON for a React/TypeScript editor.
-
-Return JSON only.
-Do not include markdown.
-Do not include explanations outside the JSON object.
-The JSON must match the output schema summary below.
-
-Important MeshFlight editor support constraints:
-- Supported entity types: drone, gateway, client
-- Supported obstacle types: building, wall, vegetation
-- Supported extra sections: demand_zones, chaos_events
-- Unsupported in the current editor AI path: interference_emitter entities, traffic_classes, scheduled_traffic, 3D altitude, weather physics, real map import
-- If the user asks for an interference zone, represent it with a vegetation obstacle labeled as interference pressure, or with an interference_spike chaos event if that better matches the request.
-
-Scenario rules:
-- Respect exact coordinates and explicit values when the user provides them.
-- If the user is vague, infer reasonable defaults.
-- If the user does not explicitly provide a required field, you must generate a reasonable value for it yourself.
-- Do not reject a request just because the user omitted metadata like battery, radio range, client demand profile, gateway capacity, map metadata, or obstacle attenuation. Fill those in.
-- Do not return doable=false for fixable layout quality issues like overlapping objects, unrealistic spacing, or weak metadata defaults. Auto-adjust and return doable=true with warnings if needed.
-- If any entities or obstacles share the same position by mistake, spread them to nearby valid positions and keep going.
-- Keep every coordinate and geometry within the canvas bounds.
-- Ensure ids are unique.
-- Ensure required fields are present.
-- Ensure numeric values are sane and positive where required.
-- If the user asks for a constraint that is representable in the current schema, satisfy it in the returned scenario instead of only describing it in summary text.
-- For update mode, preserve the existing scenario unless the user explicitly asks to change parts of it.
-- For generate mode, create a complete new scenario with useful metadata.
-- Use schema_version "0.1.0".
-- Keep traffic_classes and scheduled_traffic as empty arrays for this editor workflow.
-
-Preferred canvas bounds:
-- width={canvas_width}
-- height={canvas_height}
-
-Existing scenario JSON for update mode:
-{existing_scenario_json}
-
-Conversation history for this assistant session (oldest first):
-{conversation_history}
-
-Output schema summary:
-{build_ai_output_schema_summary()}
-
-Example of the exact root structure when doable=true:
-{json.dumps(SCENARIO_RESPONSE_EXAMPLE, indent=2)}
-
-User request:
-{request.prompt}
-""".strip()
-
-
-def build_ai_repair_prompt(
-    request: ScenarioAIAssistRequest,
-    invalid_payload: dict[str, object],
-    validation_error: str,
-) -> str:
-    canvas_width, canvas_height = _preferred_canvas(request)
-    conversation_history = (
-        "\n".join(f"- {entry}" for entry in request.conversation if entry.strip())
-        if request.conversation
-        else "none"
-    )
-    return f"""
-Repair the invalid MeshFlight scenario JSON below.
-Return JSON only.
-Do not include markdown.
-Do not add commentary.
-
-Original mode:
-{request.mode}
-
-Preferred canvas bounds:
-- width={canvas_width}
-- height={canvas_height}
-
-Original user request:
-{request.prompt}
-
-Conversation history for this assistant session (oldest first):
-{conversation_history}
-
-Validation error:
-{validation_error}
-
-Invalid payload:
-{json.dumps(invalid_payload, indent=2)}
-
-You must:
-- keep the top-level keys doable, mode, scenario, summary, warnings, reason, suggested_prompt
-- return mode="{request.mode}"
-- if doable=true, return a complete valid ScenarioSource in scenario
-- if doable=false, return a clear reason and optional suggested_prompt
-- if the request is otherwise representable, do not reject it because fields were omitted; infer those values and return a complete scenario instead
-- use only the editor-supported types: drone, gateway, client, building, wall, vegetation, demand_zones, chaos_events
-- keep traffic_classes and scheduled_traffic empty arrays
-- keep all coordinates within bounds
-- represent interference pressure with vegetation or interference_spike, not interference_emitter
-- if two or more objects share the same position, move them to nearby unique positions and keep doable=true
-- copy the ScenarioSource structure exactly from this template and replace values, do not rename keys:
-{json.dumps(SCENARIO_RESPONSE_EXAMPLE["scenario"], indent=2)}
-""".strip()
-
-
-def _preferred_canvas(request: ScenarioAIAssistRequest) -> tuple[float, float]:
-    if request.canvas is not None:
-        return request.canvas.width, request.canvas.height
-    if request.existing_scenario is not None:
-        return request.existing_scenario.map.width, request.existing_scenario.map.height
-    return 2000, 1200
 
 
 def _default_provider_name() -> AIScenarioProviderName:
@@ -942,12 +563,12 @@ def _record_daily_request(provider_name: str) -> None:
 class ScenarioProviderProtocol:
     display_name: str
 
-    def complete_assist_response(
+    def complete_scenario_plan(
         self, request: ScenarioAIAssistRequest
     ) -> dict[str, object]:
         raise NotImplementedError
 
-    def repair_assist_response(
+    def repair_scenario_plan(
         self,
         request: ScenarioAIAssistRequest,
         invalid_payload: dict[str, object],
@@ -989,7 +610,7 @@ class OllamaScenarioProvider(ScenarioProviderProtocol):
             return ScenarioAIAssistHealthResponse(
                 provider="ollama",
                 available=False,
-                base_url=self.base_url,
+                baseUrl=self.base_url,
                 model=self.model,
                 reason=f"{error} {_ollama_setup_hint(self.base_url, self.model)}",
             )
@@ -998,7 +619,7 @@ class OllamaScenarioProvider(ScenarioProviderProtocol):
             return ScenarioAIAssistHealthResponse(
                 provider="ollama",
                 available=False,
-                base_url=self.base_url,
+                baseUrl=self.base_url,
                 model=self.model,
                 reason=(
                     f"Ollama is reachable at {self.base_url}, but the model '{self.model}' is not installed. "
@@ -1009,24 +630,24 @@ class OllamaScenarioProvider(ScenarioProviderProtocol):
         return ScenarioAIAssistHealthResponse(
             provider="ollama",
             available=True,
-            base_url=self.base_url,
+            baseUrl=self.base_url,
             model=self.model,
             reason=None,
         )
 
-    def complete_assist_response(
+    def complete_scenario_plan(
         self, request: ScenarioAIAssistRequest
     ) -> dict[str, object]:
-        return self._request_json(build_ai_prompt(request))
+        return self._request_json(build_scenario_plan_prompt(request))
 
-    def repair_assist_response(
+    def repair_scenario_plan(
         self,
         request: ScenarioAIAssistRequest,
         invalid_payload: dict[str, object],
         validation_error: str,
     ) -> dict[str, object]:
         return self._request_json(
-            build_ai_repair_prompt(
+            build_scenario_plan_repair_prompt(
                 request=request,
                 invalid_payload=invalid_payload,
                 validation_error=validation_error,
@@ -1038,7 +659,7 @@ class OllamaScenarioProvider(ScenarioProviderProtocol):
             return self.client.chat_json(
                 model=self.model,
                 system_prompt=(
-                    "You generate structured MeshFlight scenario JSON only. "
+                    "You generate structured JSON only for a MeshFlight scenario *plan* (not a full scenario). "
                     "Return a single JSON object and no extra prose."
                 ),
                 user_prompt=user_prompt,
@@ -1076,24 +697,24 @@ class GeminiScenarioProvider(ScenarioProviderProtocol):
         return ScenarioAIAssistHealthResponse(
             provider="gemini",
             available=True,
-            base_url=self.base_url,
+            baseUrl=self.base_url,
             model=self.model,
             reason=None,
         )
 
-    def complete_assist_response(
+    def complete_scenario_plan(
         self, request: ScenarioAIAssistRequest
     ) -> dict[str, object]:
-        return self._request_json(build_ai_prompt(request))
+        return self._request_json(build_scenario_plan_prompt(request))
 
-    def repair_assist_response(
+    def repair_scenario_plan(
         self,
         request: ScenarioAIAssistRequest,
         invalid_payload: dict[str, object],
         validation_error: str,
     ) -> dict[str, object]:
         return self._request_json(
-            build_ai_repair_prompt(
+            build_scenario_plan_repair_prompt(
                 request=request,
                 invalid_payload=invalid_payload,
                 validation_error=validation_error,
@@ -1106,7 +727,7 @@ class GeminiScenarioProvider(ScenarioProviderProtocol):
                 "parts": [
                     {
                         "text": (
-                            "You generate structured MeshFlight scenario assistance JSON only. "
+                            "You generate structured JSON only for a MeshFlight scenario *plan* (not a full scenario). "
                             "Return no prose outside the JSON object."
                         )
                     }
@@ -1218,24 +839,24 @@ class OpenAIScenarioProvider(ScenarioProviderProtocol):
         return ScenarioAIAssistHealthResponse(
             provider="openai",
             available=True,
-            base_url=self.base_url,
+            baseUrl=self.base_url,
             model=self.model,
             reason=None,
         )
 
-    def complete_assist_response(
+    def complete_scenario_plan(
         self, request: ScenarioAIAssistRequest
     ) -> dict[str, object]:
-        return self._request_json(build_ai_prompt(request))
+        return self._request_json(build_scenario_plan_prompt(request))
 
-    def repair_assist_response(
+    def repair_scenario_plan(
         self,
         request: ScenarioAIAssistRequest,
         invalid_payload: dict[str, object],
         validation_error: str,
     ) -> dict[str, object]:
         return self._request_json(
-            build_ai_repair_prompt(
+            build_scenario_plan_repair_prompt(
                 request=request,
                 invalid_payload=invalid_payload,
                 validation_error=validation_error,
@@ -1247,7 +868,7 @@ class OpenAIScenarioProvider(ScenarioProviderProtocol):
         payload = {
             "model": self.model,
             "instructions": (
-                "You generate structured MeshFlight scenario assistance JSON only. "
+                "You generate structured JSON only for a MeshFlight scenario *plan* (not a full scenario). "
                 "Return no prose outside the JSON object."
             ),
             "input": prompt,
@@ -1315,72 +936,6 @@ def create_ai_provider(provider_name: AIScenarioProviderName) -> ScenarioProvide
     if provider_name == "openai":
         return OpenAIScenarioProvider.from_environment()
     return OllamaScenarioProvider.from_environment()
-
-
-def validate_editor_supported_scenario(scenario: ScenarioSource) -> ScenarioSource:
-    entity_types = {entity.type.value for entity in scenario.entities}
-    unsupported_entities = sorted(entity_types - set(SUPPORTED_ENTITY_TYPES))
-    if unsupported_entities:
-        raise ScenarioAIValidationError(
-            "The generated scenario uses unsupported editor entity types: "
-            + ", ".join(unsupported_entities)
-        )
-
-    obstacle_types = {obstacle.type.value for obstacle in scenario.obstacles}
-    unsupported_obstacles = sorted(obstacle_types - set(SUPPORTED_OBSTACLE_TYPES))
-    if unsupported_obstacles:
-        raise ScenarioAIValidationError(
-            "The generated scenario uses unsupported editor obstacle types: "
-            + ", ".join(unsupported_obstacles)
-        )
-
-    if scenario.traffic_classes:
-        raise ScenarioAIValidationError(
-            "The editor does not yet support AI-authored traffic classes."
-        )
-
-    if scenario.scheduled_traffic:
-        raise ScenarioAIValidationError(
-            "The editor does not yet support AI-authored scheduled traffic."
-        )
-
-    width = scenario.map.width
-    height = scenario.map.height
-
-    def check_point(name: str, x: float, y: float) -> None:
-        if x < 0 or y < 0 or x > width or y > height:
-            raise ScenarioAIValidationError(
-                f"{name} is outside the canvas bounds ({width} x {height})."
-            )
-
-    for entity in scenario.entities:
-        check_point(f"Entity {entity.id}", entity.position.x, entity.position.y)
-
-    for obstacle in scenario.obstacles:
-        if obstacle.shape == "rect":
-            check_point(
-                f"Building {obstacle.id}",
-                obstacle.position.x,
-                obstacle.position.y,
-            )
-        elif obstacle.shape == "segment":
-            check_point(f"Wall {obstacle.id} start", obstacle.start.x, obstacle.start.y)
-            check_point(f"Wall {obstacle.id} end", obstacle.end.x, obstacle.end.y)
-        elif obstacle.shape == "circle":
-            check_point(
-                f"Vegetation zone {obstacle.id}",
-                obstacle.center.x,
-                obstacle.center.y,
-            )
-
-    for demand_zone in scenario.demand_zones:
-        check_point(
-            f"Demand zone {demand_zone.id}",
-            demand_zone.center.x,
-            demand_zone.center.y,
-        )
-
-    return scenario
 
 
 def _ollama_setup_hint(base_url: str, model: str) -> str:

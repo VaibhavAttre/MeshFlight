@@ -1,16 +1,16 @@
 {
-  "scenario_id": "untitled-scenario",
-  "source_path": "C:\\Users\\vaibh\\OneDrive\\Desktop\\MeshFlight\\artifacts\\scenarios\\untitled-scenario\\source\\scenario.json",
-  "output_dir": "C:\\Users\\vaibh\\OneDrive\\Desktop\\MeshFlight\\artifacts\\scenarios\\untitled-scenario\\compiled",
+  "scenario_id": "untitledahlkfdahdkhflakjdf",
+  "source_path": "C:\\Users\\vaibh\\OneDrive\\Desktop\\MeshFlight\\artifacts\\scenarios\\untitledahlkfdahdkhflakjdf\\source\\scenario.json",
+  "output_dir": "C:\\Users\\vaibh\\OneDrive\\Desktop\\MeshFlight\\artifacts\\scenarios\\untitledahlkfdahdkhflakjdf\\compiled",
   "compiler_version": "0.1.0",
-  "generated_at": "2026-04-23T23:29:53Z",
+  "generated_at": "2026-04-23T23:39:51Z",
   "counts": {
-    "entities": 3,
-    "normalized_entities": 3,
+    "entities": 4,
+    "normalized_entities": 4,
     "obstacles": 1,
     "obstacle_index_entries": 1,
-    "candidate_graph_edges": 2,
-    "waypoint_candidates": 6,
+    "candidate_graph_edges": 1,
+    "waypoint_candidates": 9,
     "mobility_constraints": 1,
     "runtime_schedule_entries": 0,
     "traffic_classes": 0,
@@ -25,6 +25,6 @@
     "interference_penalty_scale": 10.0,
     "include_client_client_edges": false
   },
-  "source_hash": "0fb98cf60dc8b11687f10d045bc2dcc920332bfc6145d5dd4dd1c95230230529",
+  "source_hash": "7e853a4b8240d79abc96ffe5742fa269aa282209b4959768f45e79d67568d209",
   "config_hash": "77e70ea0dfd6e7703003a96edecae373efabffdd01e424b7e32a23a931e08b2f"
 }

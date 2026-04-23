@@ -173,17 +173,13 @@ export default function AIScenarioAssistantModal({
             </>
           ) : null}
           {". "}
-          LLM used: <strong>{diagnostics.llm_used ? "yes" : "no"}</strong>. Schema repair passes:{" "}
-          <strong>{diagnostics.schema_repair_passes}</strong>. Synthetic fallback:{" "}
-          <strong>{diagnostics.synthetic_fallback_used ? "yes" : "no"}</strong>. Alignment pass:{" "}
-          <strong>
-            {diagnostics.alignment_pass_attempted
-              ? diagnostics.alignment_pass_succeeded
-                ? "succeeded"
-                : "failed or skipped"
-              : "not attempted"}
-          </strong>
-          .
+          LLM used: <strong>{diagnostics.llm_used ? "yes" : "no"}</strong>. LLM calls:{" "}
+          <strong>{diagnostics.llm_invocations}</strong>. Plan repair passes:{" "}
+          <strong>{diagnostics.plan_repair_passes}</strong>. Deterministic build:{" "}
+          <strong>{diagnostics.deterministic_plan_builder_used ? "yes" : "no"}</strong>. Heuristic prompt
+          fallback: <strong>{diagnostics.heuristic_prompt_fallback_used ? "yes" : "no"}</strong>. Raw model JSON
+          logged to console: <strong>{diagnostics.raw_llm_logged ? "yes" : "no"}</strong> (set{" "}
+          <code>AI_DEBUG_LLM=true</code> in the API process).
         </p>
         {diagnostics.events.length > 0 && (
           <ul className="ai-assistant-list">

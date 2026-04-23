@@ -9,8 +9,10 @@ import {
 } from "../../lib/scenarioMapper";
 import {
   compileScenarioOnBackend,
+  fetchSimulationSnapshots,
   listSavedScenarios,
   loadSavedScenario,
+  runSimulationOnBackend,
   saveScenarioToBackend,
   type ScenarioSummary,
 } from "../../lib/scenarioApi";
@@ -27,6 +29,7 @@ export default function TopBar() {
   const [isBusy, setIsBusy] = useState(false);
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const [isAIModalOpen, setIsAIModalOpen] = useState(false);
+  const [replayPlaying, setReplayPlaying] = useState(false);
 
   const documentName = useEditorStore((s) => s.documentName);
   const currentScenarioId = useEditorStore((s) => s.currentScenarioId);
@@ -42,6 +45,10 @@ export default function TopBar() {
   const replaceFromDocument = useEditorStore((s) => s.replaceFromDocument);
   const exportToDocument = useEditorStore((s) => s.exportToDocument);
   const setDocumentName = useEditorStore((s) => s.setDocumentName);
+  const simulationReplay = useEditorStore((s) => s.simulationReplay);
+  const setSimulationReplay = useEditorStore((s) => s.setSimulationReplay);
+  const applySimulationReplayAtIndex = useEditorStore((s) => s.applySimulationReplayAtIndex);
+  const clearSimulationReplay = useEditorStore((s) => s.clearSimulationReplay);
 
   const selectedScenario = useMemo(
     () =>
@@ -73,6 +80,28 @@ export default function TopBar() {
       console.error(error);
     });
   }, []);
+
+  useEffect(() => {
+    if (!replayPlaying || !simulationReplay) {
+      return undefined;
+    }
+
+    const timer = window.setInterval(() => {
+      const replay = useEditorStore.getState().simulationReplay;
+      if (!replay) {
+        setReplayPlaying(false);
+        return;
+      }
+      const next = replay.index + 1;
+      if (next >= replay.snapshots.length) {
+        setReplayPlaying(false);
+        return;
+      }
+      useEditorStore.getState().applySimulationReplayAtIndex(next);
+    }, 700);
+
+    return () => window.clearInterval(timer);
+  }, [replayPlaying, simulationReplay]);
 
   useEffect(() => {
     function handlePointerDown(event: MouseEvent) {
@@ -191,6 +220,48 @@ export default function TopBar() {
     } catch (error) {
       console.error(error);
       window.alert("Could not compile that scenario.");
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
+  async function handleSimulate() {
+    const { scenario } = buildScenarioForBackend();
+
+    try {
+      setIsBusy(true);
+      setReplayPlaying(false);
+      const saveResult = await saveScenarioToBackend(scenario);
+      setDocumentName(saveResult.title);
+      setCurrentScenarioId(saveResult.scenario_id);
+      await refreshSavedScenarios(saveResult.scenario_id);
+
+      // Always recompile so the compiled bundle matches what you just saved.
+      await compileScenarioOnBackend(saveResult.scenario_id);
+      await refreshSavedScenarios(saveResult.scenario_id);
+
+      const sim = await runSimulationOnBackend(saveResult.scenario_id, {
+        duration_s: 28,
+        tick_duration_s: 1,
+        drone_speed_mps: 20,
+      });
+      const snapshots = await fetchSimulationSnapshots(saveResult.scenario_id, sim.run_id);
+      setSimulationReplay({
+        scenarioId: saveResult.scenario_id,
+        runId: sim.run_id,
+        snapshots: snapshots as Record<string, unknown>[],
+        index: 0,
+      });
+      applySimulationReplayAtIndex(0);
+      window.alert(
+        `Simulation ${sim.run_id} finished (${String(sim.summary.snapshots_written)} snapshots). Use the replay bar to scrub time.`
+      );
+    } catch (error) {
+      console.error(error);
+      const detail = error instanceof Error ? error.message : String(error);
+      window.alert(
+        `Could not run simulation.\n\n${detail}\n\nTip: start the API from the repo root (e.g. uvicorn meshflight_api.main:app) so it can load the compiler and simulator.`
+      );
     } finally {
       setIsBusy(false);
     }
@@ -324,6 +395,10 @@ export default function TopBar() {
             Compile
           </button>
 
+          <button type="button" onClick={handleSimulate} disabled={isBusy} title="Save, compile if needed, run Stage 0E sim, then load replay">
+            Simulate
+          </button>
+
           <button type="button" onClick={() => setIsAIModalOpen(true)} disabled={isBusy}>
             AI Scenario
           </button>
@@ -363,6 +438,54 @@ export default function TopBar() {
           />
         </div>
       </header>
+
+      {simulationReplay && (
+        <div
+          className="simulation-replay-bar"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            padding: "8px 16px",
+            borderBottom: "1px solid #1e293b",
+            background: "#0f172a",
+            color: "#e2e8f0",
+            fontSize: 13,
+          }}
+        >
+          <span>
+            Replay <strong>{simulationReplay.runId}</strong> ({simulationReplay.index + 1}/
+            {simulationReplay.snapshots.length})
+          </span>
+          <input
+            type="range"
+            min={0}
+            max={Math.max(0, simulationReplay.snapshots.length - 1)}
+            value={simulationReplay.index}
+            onChange={(e) => {
+              setReplayPlaying(false);
+              applySimulationReplayAtIndex(Number(e.target.value));
+            }}
+            style={{ flex: 1, maxWidth: 420 }}
+          />
+          <button
+            type="button"
+            onClick={() => setReplayPlaying((p) => !p)}
+            disabled={simulationReplay.snapshots.length <= 1}
+          >
+            {replayPlaying ? "Pause" : "Play"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setReplayPlaying(false);
+              clearSimulationReplay();
+            }}
+          >
+            Close replay
+          </button>
+        </div>
+      )}
 
       <AIScenarioAssistantModal
         isOpen={isAIModalOpen}
