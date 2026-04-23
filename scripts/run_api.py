@@ -28,6 +28,8 @@ load_repo_env()
 def main() -> None:
     host = os.getenv("API_HOST", "127.0.0.1").strip() or "127.0.0.1"
     port_value = os.getenv("API_PORT", "8000").strip() or "8000"
+    reload_value = os.getenv("API_RELOAD", "true").strip().lower()
+    reload_enabled = reload_value in {"1", "true", "yes", "on"}
     try:
         port = int(port_value)
     except ValueError:
@@ -37,7 +39,7 @@ def main() -> None:
         "meshflight_api.main:app",
         host=host,
         port=port,
-        reload=True,
+        reload=reload_enabled,
         app_dir=str(ROOT_DIR / "apps" / "api" / "src"),
     )
 

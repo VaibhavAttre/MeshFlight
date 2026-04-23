@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { KeyboardEvent } from "react";
 
 import { useEditorStore } from "../../app/editorStore";
 import {
@@ -6,6 +7,7 @@ import {
   requestAIScenarioAssist,
   type AIScenarioAssistResponse,
   type AIScenarioAssistHealthResponse,
+  type AIAssistDiagnostics,
   type AIScenarioMode,
   type AIScenarioProvider,
   validateScenarioSourceForEditor,
@@ -34,6 +36,8 @@ export default function AIScenarioAssistantModal({
   const canvasWidth = useEditorStore((state) => state.canvasWidth);
   const canvasHeight = useEditorStore((state) => state.canvasHeight);
   const healthRequestIdRef = useRef(0);
+  const hasInitializedSessionRef = useRef(false);
+  const chatThreadRef = useRef<HTMLDivElement | null>(null);
 
   const [provider, setProvider] = useState<AIScenarioProvider>("ollama");
   const [mode, setMode] = useState<AIScenarioMode>("generate");
@@ -41,24 +45,40 @@ export default function AIScenarioAssistantModal({
   const [prompt, setPrompt] = useState("");
   const [result, setResult] = useState<AIScenarioAssistResponse | null>(null);
   const [health, setHealth] = useState<AIScenarioAssistHealthResponse | null>(null);
+  const [conversationTurns, setConversationTurns] = useState<string[]>([]);
   const [isCheckingHealth, setIsCheckingHealth] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPreviewVisible, setIsPreviewVisible] = useState(true);
 
   useEffect(() => {
     if (!isOpen) {
       return;
     }
 
-    setProvider("ollama");
-    setMode("generate");
-    setPrompt("");
-    setResult(null);
-    setHealth(null);
-    setErrorMessage(null);
-    setIsSubmitting(false);
-    setSelectedScenarioId(currentScenarioId ?? savedScenarios[0]?.scenario_id ?? "");
-  }, [currentScenarioId, isOpen, savedScenarios]);
+    if (!hasInitializedSessionRef.current) {
+      setProvider("ollama");
+      setMode("generate");
+      setPrompt("");
+      setResult(null);
+      setHealth(null);
+      setConversationTurns([]);
+      setErrorMessage(null);
+      setIsSubmitting(false);
+      setIsPreviewVisible(true);
+      setSelectedScenarioId(currentScenarioId ?? savedScenarios[0]?.scenario_id ?? "");
+      hasInitializedSessionRef.current = true;
+      return;
+    }
+
+    if (
+      mode === "update" &&
+      !selectedScenarioId &&
+      (currentScenarioId || savedScenarios[0]?.scenario_id)
+    ) {
+      setSelectedScenarioId(currentScenarioId ?? savedScenarios[0]?.scenario_id ?? "");
+    }
+  }, [currentScenarioId, isOpen, mode, savedScenarios, selectedScenarioId]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -104,9 +124,79 @@ export default function AIScenarioAssistantModal({
       savedScenarios.find((scenario) => scenario.scenario_id === selectedScenarioId) ?? null,
     [savedScenarios, selectedScenarioId]
   );
+  const conversationMessages = useMemo(
+    () =>
+      conversationTurns.map((entry, index) => {
+        const isUser = entry.startsWith("User: ");
+        return {
+          id: `${entry}-${index}`,
+          role: isUser ? "user" : "assistant",
+          text: entry.replace(/^(User|Assistant):\s*/, ""),
+        };
+      }),
+    [conversationTurns]
+  );
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const node = chatThreadRef.current;
+    if (!node) {
+      return;
+    }
+
+    node.scrollTop = node.scrollHeight;
+  }, [conversationMessages, isOpen, isSubmitting]);
 
   if (!isOpen) {
     return null;
+  }
+
+  function renderDiagnostics(diagnostics: AIAssistDiagnostics) {
+    return (
+      <div className="ai-assistant-diagnostics">
+        <h4>How this was generated</h4>
+        <p className="ai-assistant-diagnostics__summary">
+          Provider: <strong>{diagnostics.provider}</strong>
+          {diagnostics.model ? (
+            <>
+              {" "}
+              using <strong>{diagnostics.model}</strong>
+            </>
+          ) : null}
+          {diagnostics.base_url ? (
+            <>
+              {" "}
+              at <strong>{diagnostics.base_url}</strong>
+            </>
+          ) : null}
+          {". "}
+          LLM used: <strong>{diagnostics.llm_used ? "yes" : "no"}</strong>. Schema repair passes:{" "}
+          <strong>{diagnostics.schema_repair_passes}</strong>. Synthetic fallback:{" "}
+          <strong>{diagnostics.synthetic_fallback_used ? "yes" : "no"}</strong>. Alignment pass:{" "}
+          <strong>
+            {diagnostics.alignment_pass_attempted
+              ? diagnostics.alignment_pass_succeeded
+                ? "succeeded"
+                : "failed or skipped"
+              : "not attempted"}
+          </strong>
+          .
+        </p>
+        {diagnostics.events.length > 0 && (
+          <ul className="ai-assistant-list">
+            {diagnostics.events.map((event) => (
+              <li key={`${event.name}-${event.detail}`}>
+                <strong>{event.name}</strong>
+                {event.detail ? ` — ${event.detail}` : ""}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    );
   }
 
   async function handleGenerateOrUpdate() {
@@ -125,6 +215,11 @@ export default function AIScenarioAssistantModal({
       setIsSubmitting(true);
       setErrorMessage(null);
       setResult(null);
+      setPrompt("");
+
+      const userLine = `User: ${trimmedPrompt}`;
+      const conversationForRequest = [...conversationTurns, userLine];
+      setConversationTurns((current) => [...current, userLine].slice(-10));
 
       const existingScenario =
         mode === "update" ? await loadSavedScenario(selectedScenarioId) : undefined;
@@ -133,6 +228,7 @@ export default function AIScenarioAssistantModal({
         provider,
         mode,
         prompt: trimmedPrompt,
+        conversation: conversationForRequest,
         existingScenario,
         existingScenarioId: mode === "update" ? selectedScenarioId : undefined,
         canvas: {
@@ -142,16 +238,60 @@ export default function AIScenarioAssistantModal({
       });
 
       setResult(response);
+      setIsPreviewVisible(true);
+      setConversationTurns((current) => {
+        const next = [...current];
+        if (response.doable) {
+          const assistantText = response.summary?.trim()
+            ? response.summary.trim()
+            : "Prepared a scenario preview with inferred values.";
+          next.push(`Assistant: ${assistantText}`);
+        } else {
+          const assistantText = response.reason?.trim()
+            ? response.reason.trim()
+            : "That request cannot be represented with current editor features.";
+          next.push(`Assistant: ${assistantText}`);
+        }
+        return next.slice(-10);
+      });
     } catch (error) {
       console.error(error);
-      setErrorMessage(
+      const message =
         error instanceof Error
           ? error.message
-          : "The AI assistant could not complete that request."
-      );
+          : "The AI assistant could not complete that request.";
+      setErrorMessage(message);
+      setConversationTurns((current) => [...current, `Assistant: ${message}`].slice(-10));
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  function handleComposerKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key !== "Enter") {
+      return;
+    }
+
+    if (event.shiftKey) {
+      return;
+    }
+
+    event.preventDefault();
+    void handleGenerateOrUpdate();
+  }
+
+  function handleStartNewConversation() {
+    if (isSubmitting) {
+      return;
+    }
+
+    setMode("generate");
+    setPrompt("");
+    setResult(null);
+    setConversationTurns([]);
+    setErrorMessage(null);
+    setIsPreviewVisible(true);
+    setSelectedScenarioId(currentScenarioId ?? savedScenarios[0]?.scenario_id ?? "");
   }
 
   function handleApply() {
@@ -199,6 +339,7 @@ export default function AIScenarioAssistantModal({
                 onChange={(event) => {
                   setProvider(event.target.value as AIScenarioProvider);
                   setResult(null);
+                  setConversationTurns([]);
                   setErrorMessage(null);
                 }}
               >
@@ -215,6 +356,7 @@ export default function AIScenarioAssistantModal({
                 onChange={(event) => {
                   setMode(event.target.value as AIScenarioMode);
                   setResult(null);
+                  setConversationTurns([]);
                   setErrorMessage(null);
                 }}
               >
@@ -257,32 +399,55 @@ export default function AIScenarioAssistantModal({
                   : `${provider} is not configured yet.`}
           </div>
 
-          {provider === "openai" && (
-            <div className="ai-assistant-note">
-              OpenAI API usage is paid, not free. This option stays blocked unless the backend
-              explicitly enables it and sets a positive daily cap.
-            </div>
-          )}
-
           {mode === "update" && savedScenarios.length === 0 && (
             <div className="ai-assistant-note">
               No saved scenarios are available yet. Save one first or switch to generate mode.
             </div>
           )}
 
-          <label className="editor-field">
-            <span>Prompt</span>
-            <textarea
-              className="ai-assistant-textarea"
-              value={prompt}
-              onChange={(event) => setPrompt(event.target.value)}
-              placeholder={
-                mode === "generate"
-                  ? "Create a downtown outage scenario with two gateways, six drones, several blocked corridors, and clustered clients near the south side."
-                  : "Add more clients near the south edge and reduce drone battery values to make recovery harder."
-              }
-            />
-          </label>
+          {(conversationMessages.length > 0 || isSubmitting) && (
+            <div className="ai-chat-thread" ref={chatThreadRef} aria-live="polite">
+              {(() => {
+                const messages = conversationMessages;
+                if (messages.length === 0) {
+                  return null;
+                }
+
+                return messages.map((message, index) => {
+                  const isLast = index === messages.length - 1;
+                  const showTypingUnderUser = isSubmitting && isLast && message.role === "user";
+
+                  return (
+                    <div
+                      key={message.id}
+                      className={`ai-chat-block ${
+                        message.role === "user" ? "ai-chat-block--user" : "ai-chat-block--assistant"
+                      }`}
+                    >
+                      <div
+                        className={`ai-chat-message ${
+                          message.role === "user"
+                            ? "ai-chat-message--user"
+                            : "ai-chat-message--assistant"
+                        }`}
+                      >
+                        {message.text}
+                      </div>
+                      {showTypingUnderUser && (
+                        <div className="ai-chat-typing-below">
+                          <div className="ai-chat-message ai-chat-message--assistant ai-chat-typing">
+                            <span className="ai-chat-typing-dot" />
+                            <span className="ai-chat-typing-dot" />
+                            <span className="ai-chat-typing-dot" />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          )}
 
           {selectedScenario && mode === "update" && (
             <div className="ai-assistant-note">
@@ -293,9 +458,18 @@ export default function AIScenarioAssistantModal({
 
           {errorMessage && <div className="ai-assistant-error">{errorMessage}</div>}
 
-          {result && (
+          {result && isPreviewVisible && (
             <div className="ai-assistant-preview">
-              <h3>Preview</h3>
+              <div className="ai-assistant-preview__header">
+                <h3>Preview</h3>
+                <button
+                  type="button"
+                  className="ai-assistant-preview__toggle"
+                  onClick={() => setIsPreviewVisible(false)}
+                >
+                  Hide
+                </button>
+              </div>
               {result.doable ? (
                 <>
                   <p>{result.summary ?? "Ready to apply the generated scenario."}</p>
@@ -306,6 +480,7 @@ export default function AIScenarioAssistantModal({
                       ))}
                     </ul>
                   )}
+                  {result.ai_diagnostics && renderDiagnostics(result.ai_diagnostics)}
                 </>
               ) : (
                 <>
@@ -315,6 +490,7 @@ export default function AIScenarioAssistantModal({
                       Try instead: {result.suggested_prompt}
                     </p>
                   )}
+                  {result.ai_diagnostics && renderDiagnostics(result.ai_diagnostics)}
                 </>
               )}
             </div>
@@ -322,9 +498,30 @@ export default function AIScenarioAssistantModal({
         </div>
 
         <div className="ai-assistant-modal__footer">
+          <div className="ai-chat-composer">
+            <textarea
+              className="ai-chat-composer__input"
+              value={prompt}
+              onChange={(event) => setPrompt(event.target.value)}
+              onKeyDown={handleComposerKeyDown}
+              placeholder={
+                mode === "generate"
+                  ? "Describe the scenario you want to generate... (Enter to send, Shift+Enter for a new line)"
+                  : "Describe the changes you want to apply... (Enter to send, Shift+Enter for a new line)"
+              }
+            />
+          </div>
           <button type="button" onClick={onClose}>
             Cancel
           </button>
+          <button type="button" onClick={handleStartNewConversation} disabled={isSubmitting}>
+            Start New Conversation
+          </button>
+          {result && !isPreviewVisible && (
+            <button type="button" onClick={() => setIsPreviewVisible(true)}>
+              Show Preview
+            </button>
+          )}
           <button
             type="button"
             onClick={handleGenerateOrUpdate}
@@ -335,7 +532,7 @@ export default function AIScenarioAssistantModal({
               (mode === "update" && savedScenarios.length === 0)
             }
           >
-            {isSubmitting ? "Working..." : mode === "generate" ? "Generate Preview" : "Update Preview"}
+            {mode === "generate" ? "Generate Preview" : "Update Preview"}
           </button>
           <button
             type="button"

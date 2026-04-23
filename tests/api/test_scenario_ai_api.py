@@ -215,6 +215,143 @@ def test_ai_assist_invalid_model_payload_uses_repair_pass(monkeypatch) -> None:
     assert calls["count"] == 2
 
 
+def test_ai_assist_retries_when_model_rejects_fixable_quality_issue(monkeypatch) -> None:
+    scenario_payload = make_editor_safe_scenario(load_fixture("bridge_reconnect.json"))
+    calls = {"count": 0}
+
+    def fake_chat_json(self, *, model, system_prompt, user_prompt):  # noqa: ANN001
+        calls["count"] += 1
+        if calls["count"] == 1:
+            return {
+                "doable": False,
+                "mode": "generate",
+                "scenario": None,
+                "summary": None,
+                "warnings": [],
+                "reason": "The drones are too close to obstacles and spacing is unrealistic.",
+                "suggested_prompt": "Please provide exact x/y metadata.",
+            }
+
+        return {
+            "doable": True,
+            "mode": "generate",
+            "scenario": scenario_payload,
+            "summary": "Adjusted spacing and generated defaults automatically.",
+            "warnings": ["Adjusted spacing to avoid overlap."],
+            "reason": None,
+            "suggested_prompt": None,
+        }
+
+    monkeypatch.setenv("LLM_PROVIDER", "ollama")
+    monkeypatch.setenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    monkeypatch.setenv("OLLAMA_MODEL", "qwen2.5-coder:7b")
+    monkeypatch.setattr(OllamaClient, "chat_json", fake_chat_json)
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/scenarios/ai-assist",
+            json={
+                "provider": "ollama",
+                "mode": "generate",
+                "prompt": "Create a small emergency response scenario.",
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["doable"] is True
+    assert payload["warnings"] == ["Adjusted spacing to avoid overlap."]
+    assert calls["count"] == 2
+
+
+def test_ai_assist_runs_prompt_alignment_pass(monkeypatch) -> None:
+    base_payload = make_editor_safe_scenario(load_fixture("bridge_reconnect.json"))
+    aligned_payload = make_editor_safe_scenario(load_fixture("bridge_reconnect.json"))
+    aligned_payload["metadata"]["title"] = "Bridge Reconnect Aligned"
+    calls = {"count": 0}
+
+    def fake_chat_json(self, *, model, system_prompt, user_prompt):  # noqa: ANN001
+        calls["count"] += 1
+        if calls["count"] == 1:
+            return {
+                "doable": True,
+                "mode": "generate",
+                "scenario": base_payload,
+                "summary": "Generated base scenario.",
+                "warnings": [],
+                "reason": None,
+                "suggested_prompt": None,
+            }
+        return {
+            "doable": True,
+            "mode": "generate",
+            "scenario": aligned_payload,
+            "summary": "Aligned scenario to user constraints.",
+            "warnings": [],
+            "reason": None,
+            "suggested_prompt": None,
+        }
+
+    monkeypatch.setenv("LLM_PROVIDER", "ollama")
+    monkeypatch.setenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    monkeypatch.setenv("OLLAMA_MODEL", "qwen2.5-coder:3b")
+    monkeypatch.setattr(OllamaClient, "chat_json", fake_chat_json)
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/scenarios/ai-assist",
+            json={
+                "provider": "ollama",
+                "mode": "generate",
+                "prompt": "Create a scenario and ensure it matches explicit constraints.",
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["doable"] is True
+    assert payload["scenario"]["metadata"]["title"] == "Bridge Reconnect Aligned"
+    assert calls["count"] == 2
+
+
+def test_ai_assist_uses_multiple_repair_attempts_before_failing(monkeypatch) -> None:
+    calls = {"count": 0}
+
+    def fake_chat_json(self, *, model, system_prompt, user_prompt):  # noqa: ANN001
+        calls["count"] += 1
+        return {
+            "doable": True,
+            "mode": "generate",
+            "scenario": {"metadata": {"scenario_id": "bad"}},
+            "summary": "broken",
+            "warnings": [],
+            "reason": None,
+            "suggested_prompt": None,
+        }
+
+    monkeypatch.setenv("LLM_PROVIDER", "ollama")
+    monkeypatch.setenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    monkeypatch.setenv("OLLAMA_MODEL", "qwen2.5-coder:3b")
+    monkeypatch.setenv("AI_ASSIST_ALLOW_SYNTHETIC_FALLBACK", "true")
+    monkeypatch.setattr(OllamaClient, "chat_json", fake_chat_json)
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/scenarios/ai-assist",
+            json={
+                "provider": "ollama",
+                "mode": "generate",
+                "prompt": "Create a small emergency response scenario.",
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["doable"] is True
+    assert payload["scenario"]["metadata"]["schema_version"] == "0.1.0"
+    assert calls["count"] == 4
+
+
 def test_ai_assist_reports_provider_connectivity_issue(monkeypatch) -> None:
     def fake_chat_json(self, *, model, system_prompt, user_prompt):  # noqa: ANN001
         raise OllamaClientError("blocked")

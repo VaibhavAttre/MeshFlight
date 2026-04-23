@@ -8,6 +8,7 @@
   ],
   "scripts": {
     "dev:api": ".venv\\Scripts\\python scripts\\run_api.py",
+    "dev:api:stable": "set API_RELOAD=false&& .venv\\Scripts\\python scripts\\run_api.py",
     "dev:ui": "npm run dev --workspace @meshflight/editor-ui",
     "build:ui": "npm run build --workspace @meshflight/editor-ui",
     "typecheck:ui": "npm run typecheck --workspace @meshflight/editor-ui",

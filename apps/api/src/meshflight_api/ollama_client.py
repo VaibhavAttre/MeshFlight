@@ -42,7 +42,7 @@ class OllamaClient:
                 ],
                 "stream": False,
                 "format": "json",
-                "options": {"temperature": 0.2},
+                "options": {"temperature": 0},
             },
         )
 
@@ -54,10 +54,7 @@ class OllamaClient:
         if not isinstance(content, str) or not content.strip():
             raise OllamaClientError("Ollama /api/chat returned an empty message content.")
 
-        try:
-            parsed = json.loads(content)
-        except json.JSONDecodeError as error:
-            raise OllamaClientError("Ollama returned content that was not valid JSON.") from error
+        parsed = self._parse_json_object_content(content)
 
         if not isinstance(parsed, dict):
             raise OllamaClientError("Ollama returned JSON, but it was not a JSON object.")
@@ -81,7 +78,8 @@ class OllamaClient:
             except httpx.ReadTimeout as error:
                 raise OllamaClientError(
                     f"Ollama timed out after {self.timeout_s:.0f}s while handling {path}. "
-                    "The local model is responding too slowly for the current timeout."
+                    "The local model is responding too slowly for the current timeout. "
+                    "Increase OLLAMA_TIMEOUT_S or use a lighter model."
                 ) from error
             except httpx.ConnectError as error:
                 raise OllamaClientError(
@@ -106,3 +104,67 @@ class OllamaClient:
             raise OllamaClientError("Ollama returned a JSON payload that was not an object.")
 
         return payload
+
+    def _parse_json_object_content(self, content: str) -> dict[str, object]:
+        # First try strict parsing for the happy path.
+        try:
+            parsed = json.loads(content)
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            pass
+
+        # Handle common model patterns like ```json ... ``` wrappers.
+        stripped = content.strip()
+        if stripped.startswith("```"):
+            fence_lines = stripped.splitlines()
+            if len(fence_lines) >= 3 and fence_lines[-1].strip() == "```":
+                inner = "\n".join(fence_lines[1:-1]).strip()
+                try:
+                    parsed = json.loads(inner)
+                    if isinstance(parsed, dict):
+                        return parsed
+                except json.JSONDecodeError:
+                    pass
+
+        # Last resort: extract first balanced JSON object from mixed prose.
+        obj_text = self._extract_first_json_object(content)
+        if obj_text is not None:
+            try:
+                parsed = json.loads(obj_text)
+                if isinstance(parsed, dict):
+                    return parsed
+            except json.JSONDecodeError:
+                pass
+
+        raise OllamaClientError("Ollama returned content that was not valid JSON.")
+
+    def _extract_first_json_object(self, text: str) -> str | None:
+        start = text.find("{")
+        if start == -1:
+            return None
+
+        depth = 0
+        in_string = False
+        escaped = False
+        for index in range(start, len(text)):
+            char = text[index]
+            if in_string:
+                if escaped:
+                    escaped = False
+                elif char == "\\":
+                    escaped = True
+                elif char == '"':
+                    in_string = False
+                continue
+
+            if char == '"':
+                in_string = True
+            elif char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    return text[start : index + 1]
+
+        return None

@@ -11,12 +11,30 @@ export type AIScenarioAssistRequest = {
   provider: AIScenarioProvider;
   mode: AIScenarioMode;
   prompt: string;
+  conversation?: string[];
   existingScenario?: ScenarioSource;
   existingScenarioId?: string;
   canvas?: {
     width: number;
     height: number;
   };
+};
+
+export type AIAssistEvent = {
+  name: string;
+  detail: string;
+};
+
+export type AIAssistDiagnostics = {
+  provider: string;
+  llm_used: boolean;
+  model: string | null;
+  base_url: string | null;
+  events: AIAssistEvent[];
+  schema_repair_passes: number;
+  synthetic_fallback_used: boolean;
+  alignment_pass_attempted: boolean;
+  alignment_pass_succeeded: boolean;
 };
 
 export type AIScenarioAssistResponse = {
@@ -27,6 +45,7 @@ export type AIScenarioAssistResponse = {
   warnings: string[];
   reason?: string | null;
   suggested_prompt?: string | null;
+  ai_diagnostics?: AIAssistDiagnostics | null;
 };
 
 export type AIScenarioAssistHealthResponse = {
@@ -71,6 +90,7 @@ export async function requestAIScenarioAssist(
       provider: request.provider,
       mode: request.mode,
       prompt: request.prompt,
+      conversation: request.conversation ?? [],
       existing_scenario: request.existingScenario,
       existing_scenario_id: request.existingScenarioId,
       canvas: request.canvas,
