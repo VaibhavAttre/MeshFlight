@@ -1,0 +1,189 @@
+{
+  "compilation_metadata": {
+    "source_scenario_id": "forest-scenario-with-many-events",
+    "source_hash": "a7ddfe1b4782cad6d38539c50f954961c814105127d0caf50dedf6a626aa5f00",
+    "compiler_version": "0.1.0",
+    "config_hash": "77e70ea0dfd6e7703003a96edecae373efabffdd01e424b7e32a23a931e08b2f",
+    "seed": 0,
+    "generated_at": "2026-05-02T05:11:52Z"
+  },
+  "normalized_entities": [
+    {
+      "id": "client-1",
+      "type": "client",
+      "x": 873.1,
+      "y": 659.94,
+      "properties": {
+        "label": "Client 1",
+        "demand_profile": "telemetry"
+      }
+    },
+    {
+      "id": "drone-1",
+      "type": "drone",
+      "x": 1009.21,
+      "y": 609.78,
+      "properties": {
+        "label": "Drone 1",
+        "tags_csv": "editor:battery_pct=100",
+        "battery_capacity_mah": 100.0,
+        "max_speed_mps": 15.0,
+        "comms_range_m": 178.0,
+        "waypoint_step_m": 25.0
+      }
+    },
+    {
+      "id": "gateway-1",
+      "type": "gateway",
+      "x": 803.27,
+      "y": 627.96,
+      "properties": {
+        "label": "Gateway 1",
+        "tags_csv": "editor:uplink=fiber",
+        "uplink_capacity_mbps": 250.0,
+        "comms_range_m": 260.0
+      }
+    }
+  ],
+  "obstacle_index": [],
+  "candidate_graph_edges": [
+    {
+      "src": "drone-1",
+      "dst": "client-1",
+      "distance_m": 145.058,
+      "estimated_penalty": 0.0
+    },
+    {
+      "src": "gateway-1",
+      "dst": "client-1",
+      "distance_m": 76.805,
+      "estimated_penalty": 0.0
+    }
+  ],
+  "waypoint_candidates": [
+    {
+      "drone_id": "drone-1",
+      "point": {
+        "x": 1009.21,
+        "y": 609.78
+      },
+      "move_cost": 0.0
+    },
+    {
+      "drone_id": "drone-1",
+      "point": {
+        "x": 984.21,
+        "y": 609.78
+      },
+      "move_cost": 25.0
+    },
+    {
+      "drone_id": "drone-1",
+      "point": {
+        "x": 991.532,
+        "y": 627.458
+      },
+      "move_cost": 25.0
+    },
+    {
+      "drone_id": "drone-1",
+      "point": {
+        "x": 991.532,
+        "y": 592.102
+      },
+      "move_cost": 25.0
+    },
+    {
+      "drone_id": "drone-1",
+      "point": {
+        "x": 1009.21,
+        "y": 634.78
+      },
+      "move_cost": 25.0
+    },
+    {
+      "drone_id": "drone-1",
+      "point": {
+        "x": 1009.21,
+        "y": 584.78
+      },
+      "move_cost": 25.0
+    },
+    {
+      "drone_id": "drone-1",
+      "point": {
+        "x": 1026.888,
+        "y": 627.458
+      },
+      "move_cost": 25.0
+    },
+    {
+      "drone_id": "drone-1",
+      "point": {
+        "x": 1026.888,
+        "y": 592.102
+      },
+      "move_cost": 25.0
+    },
+    {
+      "drone_id": "drone-1",
+      "point": {
+        "x": 1034.21,
+        "y": 609.78
+      },
+      "move_cost": 25.0
+    }
+  ],
+  "mobility_constraints": [
+    {
+      "drone_id": "drone-1",
+      "max_speed_mps": 15.0,
+      "movement_bounds": {
+        "width": 2000.0,
+        "height": 1200.0
+      }
+    }
+  ],
+  "runtime_schedule": [
+    {
+      "time_s": 222.55,
+      "action": "chaos_interference_spike",
+      "target_id": "client-1",
+      "payload": {
+        "event_id": "chaos-2-interference_spike-222",
+        "event_type": "interference_spike",
+        "duration_s": 43.38,
+        "intensity": 0.372
+      }
+    },
+    {
+      "time_s": 265.93,
+      "action": "chaos_interference_spike_end",
+      "target_id": "client-1",
+      "payload": {
+        "event_id": "chaos-2-interference_spike-222",
+        "event_type": "interference_spike"
+      }
+    },
+    {
+      "time_s": 344.34,
+      "action": "chaos_obstacle_appearance",
+      "target_id": "drone-1",
+      "payload": {
+        "event_id": "chaos-1-obstacle_appearance-344",
+        "event_type": "obstacle_appearance",
+        "duration_s": 39.34,
+        "intensity": 0.447
+      }
+    },
+    {
+      "time_s": 383.67999999999995,
+      "action": "chaos_obstacle_appearance_end",
+      "target_id": "drone-1",
+      "payload": {
+        "event_id": "chaos-1-obstacle_appearance-344",
+        "event_type": "obstacle_appearance"
+      }
+    }
+  ]
+}

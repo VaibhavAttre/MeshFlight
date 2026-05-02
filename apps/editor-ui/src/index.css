@@ -49,29 +49,47 @@ p {
 }
 
 .topbar {
-  height: 64px;
   border-bottom: 1px solid #1e293b;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 16px;
+  padding: 10px 14px 12px;
   background: #0f172a;
 }
 
-.topbar-left h1 {
-  font-size: 1.1rem;
-}
-
-.topbar-center {
+.topbar-inner {
   display: flex;
-  justify-content: center;
+  flex-wrap: wrap;
   align-items: center;
+  gap: 10px 12px;
+  width: 100%;
+  max-width: 100%;
 }
 
-.topbar-right {
+.topbar-brand {
+  flex: 0 0 auto;
+}
+
+.topbar-brand h1 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.topbar-group {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
-  align-items: center;
+  min-width: 0;
+}
+
+.topbar-group--toggles {
+  flex: 0 1 auto;
+}
+
+.topbar-group--actions {
+  flex: 1 1 auto;
+  justify-content: flex-end;
+  min-width: min(100%, 280px);
 }
 
 .topbar-menu {
@@ -183,6 +201,20 @@ p {
   color: #cbd5e1;
 }
 
+.drone-radius-toggle__label-short {
+  display: none;
+}
+
+@media (max-width: 720px) {
+  .drone-radius-toggle__label-short {
+    display: inline;
+  }
+
+  .drone-radius-toggle__label-full {
+    display: none;
+  }
+}
+
 .status-pill {
   padding: 6px 10px;
   border-radius: 999px;
@@ -194,8 +226,9 @@ p {
 .main-layout {
   flex: 1;
   display: grid;
-  grid-template-columns: 220px 1fr 300px;
+  grid-template-columns: minmax(160px, 220px) minmax(0, 1fr) minmax(220px, 300px);
   min-height: 0;
+  min-width: 0;
 }
 
 .left-toolbar {
@@ -844,7 +877,7 @@ p {
 }
 
 .topbar-name-input {
-  min-width: 240px;
+  min-width: 0;
   padding: 8px 10px;
   border-radius: 8px;
   border: 1px solid #334155;
@@ -853,8 +886,36 @@ p {
   outline: none;
 }
 
+.topbar-field-grow {
+  flex: 1 1 180px;
+  max-width: 100%;
+}
+
+.topbar-select-scenario {
+  flex: 1 1 220px;
+  max-width: min(100%, 520px);
+}
+
 .topbar-name-input:focus {
   border-color: #60a5fa;
+}
+
+.simulation-replay-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 12px;
+  padding: 8px 14px;
+  border-bottom: 1px solid #1e293b;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-size: 13px;
+}
+
+.simulation-replay-bar__scrubber {
+  flex: 1 1 200px;
+  min-width: min(100%, 160px);
+  max-width: min(100%, 520px);
 }
 
 .ai-assistant-modal-backdrop {

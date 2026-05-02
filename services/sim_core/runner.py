@@ -170,6 +170,8 @@ class SimulationRunner:
         disconnected_clients = len(clients) - connected_clients
         failed_drones = sum(1 for drone in drones if drone.status == "failed")
 
+        failed_nodes = sum(1 for node in self.state.nodes.values() if node.status == "failed")
+
         return {
             "run_id": self.run_id,
             "duration_s": self.duration_s,
@@ -184,5 +186,6 @@ class SimulationRunner:
             "final_connected_clients": connected_clients,
             "final_disconnected_clients": disconnected_clients,
             "final_failed_drones": failed_drones,
+            "final_failed_nodes": failed_nodes,
             "final_active_links": len(self.state.links),
         }

@@ -112,6 +112,9 @@ class SimState:
     # IDs of events already applied, so scheduled events do not apply twice.
     applied_event_ids: set[str] = field(default_factory=set)
 
+    # (sorted endpoint ids) -> compiler estimated_penalty from candidate_graph_edges
+    edge_penalties: dict[tuple[str, str], float] = field(default_factory=dict)
+
     def advance_time(self) -> None:
         self.tick += 1
         self.time_s = self.tick * self.tick_duration_s
@@ -250,6 +253,8 @@ def build_initial_state(
         node = _entity_to_node_state(entity)
         state.nodes[node.id] = node
 
+    state.edge_penalties = _extract_edge_penalties(scenario_dict)
+
     return state
 
 
@@ -265,6 +270,39 @@ def _to_dict(value: Any) -> dict[str, Any]:
         return value.model_dump()
 
     raise TypeError(f"Expected dict or Pydantic model, got {type(value)!r}")
+
+
+def _extract_edge_penalties(scenario_dict: dict[str, Any]) -> dict[tuple[str, str], float]:
+    """
+    Map undirected entity pairs to compiler ``estimated_penalty`` (obstacle / interference).
+
+    Missing edges fall back to distance-only quality in ``compute_links``.
+    """
+
+    raw = scenario_dict.get("candidate_graph_edges")
+    if not isinstance(raw, list):
+        nested = scenario_dict.get("scenario")
+        if isinstance(nested, dict):
+            raw = nested.get("candidate_graph_edges")
+        if not isinstance(raw, list):
+            return {}
+
+    out: dict[tuple[str, str], float] = {}
+    for item in raw:
+        if not isinstance(item, dict):
+            continue
+        src = item.get("src")
+        dst = item.get("dst")
+        if src is None or dst is None:
+            continue
+        try:
+            penalty = float(item.get("estimated_penalty", 0.0))
+        except (TypeError, ValueError):
+            penalty = 0.0
+        key = tuple(sorted((str(src), str(dst))))
+        out[key] = max(0.0, penalty)
+
+    return out
 
 
 def _extract_entities(compiled: dict[str, Any]) -> list[dict[str, Any]]:

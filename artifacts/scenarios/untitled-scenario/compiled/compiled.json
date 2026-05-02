@@ -1,0 +1,16 @@
+{
+  "compilation_metadata": {
+    "source_scenario_id": "untitled-scenario",
+    "source_hash": "d2be7436806895483d6fd76707fb0ef1aff05b7e87ce04f0bef96641a7901e28",
+    "compiler_version": "0.1.0",
+    "config_hash": "77e70ea0dfd6e7703003a96edecae373efabffdd01e424b7e32a23a931e08b2f",
+    "seed": 0,
+    "generated_at": "2026-05-02T04:59:35Z"
+  },
+  "normalized_entities": [],
+  "obstacle_index": [],
+  "candidate_graph_edges": [],
+  "waypoint_candidates": [],
+  "mobility_constraints": [],
+  "runtime_schedule": []
+}

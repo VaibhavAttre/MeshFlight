@@ -1,0 +1,30 @@
+{
+  "scenario_id": "forest-scenario-with-many-events",
+  "source_path": "C:\\Users\\vaibh\\OneDrive\\Desktop\\MeshFlight\\artifacts\\scenarios\\forest-scenario-with-many-events\\source\\scenario.json",
+  "output_dir": "C:\\Users\\vaibh\\OneDrive\\Desktop\\MeshFlight\\artifacts\\scenarios\\forest-scenario-with-many-events\\compiled",
+  "compiler_version": "0.1.0",
+  "generated_at": "2026-05-02T05:11:52Z",
+  "counts": {
+    "entities": 3,
+    "normalized_entities": 3,
+    "obstacles": 0,
+    "obstacle_index_entries": 0,
+    "candidate_graph_edges": 2,
+    "waypoint_candidates": 9,
+    "mobility_constraints": 1,
+    "runtime_schedule_entries": 4,
+    "traffic_classes": 0,
+    "scheduled_traffic_events": 0,
+    "chaos_events": 2
+  },
+  "config": {
+    "grid_cell_size_m": 50.0,
+    "waypoint_directions": 8,
+    "los_block_penalty_multiplier": 1.0,
+    "blocks_flight_penalty_bonus": 5.0,
+    "interference_penalty_scale": 10.0,
+    "include_client_client_edges": false
+  },
+  "source_hash": "a7ddfe1b4782cad6d38539c50f954961c814105127d0caf50dedf6a626aa5f00",
+  "config_hash": "77e70ea0dfd6e7703003a96edecae373efabffdd01e424b7e32a23a931e08b2f"
+}

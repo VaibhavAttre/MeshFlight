@@ -1,0 +1,93 @@
+{
+  "metadata": {
+    "scenario_id": "forest-scenario-with-many-events",
+    "schema_version": "0.1.0",
+    "title": "Forest Scenario with Many Events",
+    "description": "",
+    "seed": 0,
+    "created_at": "2026-05-02T05:11:52.233Z",
+    "authoring_version": "editor-ui"
+  },
+  "map": {
+    "width": 2000.0,
+    "height": 1200.0,
+    "grid_resolution": 20.0,
+    "unit_scale_meters": 1.0,
+    "origin": {
+      "x": 0.0,
+      "y": 0.0
+    },
+    "layers": [
+      {
+        "id": "base",
+        "name": "Base",
+        "visible": true
+      }
+    ]
+  },
+  "entities": [
+    {
+      "id": "gateway-1",
+      "type": "gateway",
+      "label": "Gateway 1",
+      "position": {
+        "x": 803.27,
+        "y": 627.96
+      },
+      "tags": [
+        "editor:uplink=fiber"
+      ],
+      "uplink_capacity_mbps": 250.0,
+      "comms_range_m": 260.0
+    },
+    {
+      "id": "drone-1",
+      "type": "drone",
+      "label": "Drone 1",
+      "position": {
+        "x": 1009.21,
+        "y": 609.78
+      },
+      "tags": [
+        "editor:battery_pct=100"
+      ],
+      "battery_capacity_mah": 100.0,
+      "max_speed_mps": 15.0,
+      "comms_range_m": 178.0,
+      "waypoint_step_m": 25.0
+    },
+    {
+      "id": "client-1",
+      "type": "client",
+      "label": "Client 1",
+      "position": {
+        "x": 873.1,
+        "y": 659.94
+      },
+      "tags": [],
+      "demand_profile": "telemetry"
+    }
+  ],
+  "obstacles": [],
+  "demand_zones": [],
+  "traffic_classes": [],
+  "scheduled_traffic": [],
+  "chaos_events": [
+    {
+      "id": "chaos-1-obstacle_appearance-344",
+      "event_type": "obstacle_appearance",
+      "target_entity_id": "drone-1",
+      "trigger_time_s": 344.34,
+      "duration_s": 39.34,
+      "intensity": 0.447
+    },
+    {
+      "id": "chaos-2-interference_spike-222",
+      "event_type": "interference_spike",
+      "target_entity_id": "client-1",
+      "trigger_time_s": 222.55,
+      "duration_s": 43.38,
+      "intensity": 0.372
+    }
+  ]
+}

@@ -40,7 +40,8 @@ def test_save_list_load_and_compile_scenario_api(monkeypatch) -> None:
         scenario_id = saved["scenario_id"]
         assert scenario_id == "bridge-reconnect"
         assert saved["title"] == "Bridge Reconnect"
-        assert saved["path"].endswith("bridge-reconnect\\source\\scenario.json")
+        saved_path = Path(saved["path"])
+        assert saved_path.parts[-3:] == ("bridge-reconnect", "source", "scenario.json")
 
         list_response = client.get("/api/scenarios")
         assert list_response.status_code == 200
@@ -62,9 +63,12 @@ def test_save_list_load_and_compile_scenario_api(monkeypatch) -> None:
         compiled = compile_response.json()
 
         assert compiled["scenario_id"] == scenario_id
-        assert compiled["source_path"].endswith("bridge-reconnect\\source\\scenario.json")
-        assert compiled["compiled_path"].endswith("bridge-reconnect\\compiled\\compiled.json")
-        assert compiled["report_path"].endswith("bridge-reconnect\\compiled\\compile_report.json")
+        source_path = Path(compiled["source_path"])
+        assert source_path.parts[-3:] == ("bridge-reconnect", "source", "scenario.json")
+        compiled_path = Path(compiled["compiled_path"])
+        assert compiled_path.parts[-3:] == ("bridge-reconnect", "compiled", "compiled.json")
+        report_path = Path(compiled["report_path"])
+        assert report_path.parts[-3:] == ("bridge-reconnect", "compiled", "compile_report.json")
 
         assert (temp_artifacts_dir / "bridge-reconnect" / "source" / "scenario.json").exists()
         assert (temp_artifacts_dir / "bridge-reconnect" / "compiled" / "compiled.json").exists()

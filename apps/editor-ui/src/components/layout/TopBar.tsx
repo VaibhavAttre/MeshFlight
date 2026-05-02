@@ -241,7 +241,8 @@ export default function TopBar() {
       await refreshSavedScenarios(saveResult.scenario_id);
 
       const sim = await runSimulationOnBackend(saveResult.scenario_id, {
-        duration_s: 28,
+        // Long enough for bridge-style chaos (e.g. ~45s node failure) without Stage 0F controls.
+        duration_s: 75,
         tick_duration_s: 1,
         drone_speed_mps: 20,
       });
@@ -316,22 +317,21 @@ export default function TopBar() {
   return (
     <>
       <header className="topbar">
-        <div className="topbar-left">
-          <h1>MeshFlight Editor</h1>
-        </div>
+        <div className="topbar-inner">
+          <div className="topbar-brand">
+            <h1>MeshFlight Editor</h1>
+          </div>
 
-        <div className="topbar-center">
           <input
             value={documentName}
             onChange={(e) => setDocumentName(e.target.value)}
-            className="topbar-name-input"
+            className="topbar-name-input topbar-field-grow"
             placeholder="Scenario name"
+            aria-label="Scenario name"
           />
-        </div>
 
-        <div className="topbar-right">
           <select
-            className="topbar-name-input"
+            className="topbar-name-input topbar-select-scenario"
             value={selectedScenarioId}
             onChange={handleSavedScenarioChange}
             disabled={isBusy}
@@ -346,87 +346,104 @@ export default function TopBar() {
             ))}
           </select>
 
-          <button
-            type="button"
-            className={`drone-radius-toggle ${showDroneRanges ? "is-on" : ""}`}
-            onClick={toggleDroneRanges}
-            aria-pressed={showDroneRanges}
-          >
-            <span className="drone-radius-toggle__track">
-              <span className="drone-radius-toggle__thumb" />
-            </span>
-            <span className="drone-radius-toggle__label">
-              Drone Radius {showDroneRanges ? "On" : "Off"}
-            </span>
-          </button>
-
-          <button
-            type="button"
-            className={`drone-radius-toggle ${showClientDroneLinks ? "is-on" : ""}`}
-            onClick={toggleClientDroneLinks}
-            aria-pressed={showClientDroneLinks}
-          >
-            <span className="drone-radius-toggle__track">
-              <span className="drone-radius-toggle__thumb" />
-            </span>
-            <span className="drone-radius-toggle__label">
-              Link Flow {showClientDroneLinks ? "On" : "Off"}
-            </span>
-          </button>
-
-          <button type="button" onClick={handleNew}>
-            New
-          </button>
-
-          <button
-            type="button"
-            onClick={handleLoadSavedScenario}
-            disabled={isBusy || !selectedScenario}
-            title="Reload the currently selected saved scenario"
-          >
-            Load
-          </button>
-
-          <button type="button" onClick={handleSave} disabled={isBusy}>
-            Save
-          </button>
-
-          <button type="button" onClick={handleCompile} disabled={isBusy}>
-            Compile
-          </button>
-
-          <button type="button" onClick={handleSimulate} disabled={isBusy} title="Save, compile if needed, run Stage 0E sim, then load replay">
-            Simulate
-          </button>
-
-          <button type="button" onClick={() => setIsAIModalOpen(true)} disabled={isBusy}>
-            AI Scenario
-          </button>
-
-          <div className="topbar-menu" ref={moreMenuRef}>
+          <div className="topbar-group topbar-group--toggles">
             <button
               type="button"
-              onClick={() => setIsMoreMenuOpen((current) => !current)}
-              disabled={isBusy}
-              aria-expanded={isMoreMenuOpen}
+              className={`drone-radius-toggle ${showDroneRanges ? "is-on" : ""}`}
+              onClick={toggleDroneRanges}
+              aria-pressed={showDroneRanges}
+              title="Show or hide drone coverage radius"
             >
-              More
+              <span className="drone-radius-toggle__track">
+                <span className="drone-radius-toggle__thumb" />
+              </span>
+              <span className="drone-radius-toggle__label">
+                <span className="drone-radius-toggle__label-short">Radius</span>
+                <span className="drone-radius-toggle__label-full">
+                  Drone Radius {showDroneRanges ? "On" : "Off"}
+                </span>
+              </span>
             </button>
 
-            {isMoreMenuOpen && (
-              <div className="topbar-menu-panel">
-                <button type="button" onClick={handleExport} disabled={isBusy}>
-                  Export
-                </button>
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={isBusy}
-                >
-                  Import
-                </button>
-              </div>
-            )}
+            <button
+              type="button"
+              className={`drone-radius-toggle ${showClientDroneLinks ? "is-on" : ""}`}
+              onClick={toggleClientDroneLinks}
+              aria-pressed={showClientDroneLinks}
+              title="Show or hide client–drone link flow"
+            >
+              <span className="drone-radius-toggle__track">
+                <span className="drone-radius-toggle__thumb" />
+              </span>
+              <span className="drone-radius-toggle__label">
+                <span className="drone-radius-toggle__label-short">Links</span>
+                <span className="drone-radius-toggle__label-full">
+                  Link Flow {showClientDroneLinks ? "On" : "Off"}
+                </span>
+              </span>
+            </button>
+          </div>
+
+          <div className="topbar-group topbar-group--actions">
+            <button type="button" onClick={handleNew}>
+              New
+            </button>
+
+            <button
+              type="button"
+              onClick={handleLoadSavedScenario}
+              disabled={isBusy || !selectedScenario}
+              title="Reload the currently selected saved scenario"
+            >
+              Load
+            </button>
+
+            <button type="button" onClick={handleSave} disabled={isBusy}>
+              Save
+            </button>
+
+            <button type="button" onClick={handleCompile} disabled={isBusy}>
+              Compile
+            </button>
+
+            <button
+              type="button"
+              onClick={handleSimulate}
+              disabled={isBusy}
+              title="Save, compile, run simulation, then load replay"
+            >
+              Simulate
+            </button>
+
+            <button type="button" onClick={() => setIsAIModalOpen(true)} disabled={isBusy}>
+              AI Scenario
+            </button>
+
+            <div className="topbar-menu" ref={moreMenuRef}>
+              <button
+                type="button"
+                onClick={() => setIsMoreMenuOpen((current) => !current)}
+                disabled={isBusy}
+                aria-expanded={isMoreMenuOpen}
+              >
+                More
+              </button>
+
+              {isMoreMenuOpen && (
+                <div className="topbar-menu-panel">
+                  <button type="button" onClick={handleExport} disabled={isBusy}>
+                    Export
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isBusy}
+                  >
+                    Import
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           <input
@@ -440,19 +457,7 @@ export default function TopBar() {
       </header>
 
       {simulationReplay && (
-        <div
-          className="simulation-replay-bar"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            padding: "8px 16px",
-            borderBottom: "1px solid #1e293b",
-            background: "#0f172a",
-            color: "#e2e8f0",
-            fontSize: 13,
-          }}
-        >
+        <div className="simulation-replay-bar">
           <span>
             Replay <strong>{simulationReplay.runId}</strong> ({simulationReplay.index + 1}/
             {simulationReplay.snapshots.length})
@@ -466,7 +471,7 @@ export default function TopBar() {
               setReplayPlaying(false);
               applySimulationReplayAtIndex(Number(e.target.value));
             }}
-            style={{ flex: 1, maxWidth: 420 }}
+            className="simulation-replay-bar__scrubber"
           />
           <button
             type="button"
