@@ -9,6 +9,14 @@ ENV_PATH = ROOT_DIR / ".env"
 
 
 def load_repo_env() -> None:
+    """
+    Load key/value pairs from the repo-root `.env` into `os.environ`.
+
+    Uses normal assignment (not `setdefault`) so values in `.env` override any
+    same-named variables already present in the process environment (e.g. a
+    stale Windows user `OLLAMA_MODEL`, or an IDE-injected value). That keeps
+    edits to `.env` effective after restarting the API.
+    """
     if not ENV_PATH.exists():
         return
 
@@ -27,4 +35,4 @@ def load_repo_env() -> None:
         if value.startswith(("\"", "'")) and value.endswith(("\"", "'")) and len(value) >= 2:
             value = value[1:-1]
 
-        os.environ.setdefault(key, value)
+        os.environ[key] = value

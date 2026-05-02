@@ -164,7 +164,7 @@ def test_ai_assist_update_returns_validated_existing_scenario_id(monkeypatch) ->
     assert payload["scenario"]["demand_zones"][-1]["id"] == "demand-zone-2"
 
 
-def test_ai_assist_invalid_model_payload_uses_repair_pass(monkeypatch) -> None:
+def test_ai_assist_invalid_model_payload_is_normalized_without_extra_roundtrip(monkeypatch) -> None:
     calls = {"count": 0}
 
     def fake_chat_json(self, *, model, system_prompt, user_prompt):  # noqa: ANN001
@@ -205,22 +205,16 @@ def test_ai_assist_invalid_model_payload_uses_repair_pass(monkeypatch) -> None:
 
     assert response.status_code == 200
     assert response.json()["doable"] is True
-    assert calls["count"] == 2
+    assert calls["count"] == 1
 
 
-def test_ai_assist_retries_when_model_rejects_fixable_quality_issue(monkeypatch) -> None:
+def test_ai_assist_normalizes_sparse_model_payload_into_valid_plan(monkeypatch) -> None:
     calls = {"count": 0}
 
     def fake_chat_json(self, *, model, system_prompt, user_prompt):  # noqa: ANN001
         calls["count"] += 1
-        if calls["count"] == 1:
-            return {"invalid": "plan"}
-
         return {
-            "kind": "meshflight_scenario_plan_v1",
-            "version": 1,
-            "request_mode": "generate",
-            "feasible": True,
+            "invalid": "plan",
             "summary": "Adjusted counts after repair pass.",
             "warnings": ["Adjusted spacing to avoid overlap."],
             "counts": {
@@ -249,24 +243,76 @@ def test_ai_assist_retries_when_model_rejects_fixable_quality_issue(monkeypatch)
     payload = response.json()
     assert payload["doable"] is True
     assert "Adjusted counts after repair pass." in (payload.get("summary") or "")
-    assert calls["count"] == 2
+    assert calls["count"] == 1
 
 
-def test_ai_assist_runs_plan_repair_and_compiles_scenario(monkeypatch) -> None:
+def test_ai_assist_accepts_scenario_shaped_llm_payload(monkeypatch) -> None:
+    def fake_chat_json(self, *, model, system_prompt, user_prompt):  # noqa: ANN001
+        return {
+            "doable": True,
+            "mode": "generate",
+            "summary": "Generated a complete scenario payload instead of a plan.",
+            "scenario": {
+                "metadata": {"title": "small-emergency-response-test"},
+                "entities": [
+                    {"type": "gateway"},
+                    {"type": "drone"},
+                    {"type": "drone"},
+                    {"type": "drone"},
+                    {"type": "client"},
+                    {"type": "client"},
+                    {"type": "client"},
+                    {"type": "client"},
+                    {"type": "client"},
+                    {"type": "client"},
+                ],
+                "obstacles": [
+                    {"type": "building"},
+                    {"type": "vegetation"},
+                ],
+                "demand_zones": [],
+            },
+        }
+
+    monkeypatch.setenv("LLM_PROVIDER", "ollama")
+    monkeypatch.setenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
+    monkeypatch.setenv("OLLAMA_MODEL", "qwen2.5-coder:3b")
+    monkeypatch.setattr(OllamaClient, "chat_json", fake_chat_json)
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/scenarios/ai-assist",
+            json={
+                "provider": "ollama",
+                "mode": "generate",
+                "prompt": (
+                    "Generate a small emergency response scenario with one gateway, "
+                    "three drones, six clients, one building blocking line-of-sight, "
+                    "and one vegetation zone representing interference pressure. "
+                    "Use reasonable positions and metadata. Make the scenario name "
+                    "'small-emergency-response-test'."
+                ),
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["doable"] is True
+    assert payload["scenario"]["metadata"]["title"] == "small-emergency-response-test"
+    assert len([e for e in payload["scenario"]["entities"] if e["type"] == "gateway"]) == 1
+    assert len([e for e in payload["scenario"]["entities"] if e["type"] == "drone"]) == 3
+    assert len([e for e in payload["scenario"]["entities"] if e["type"] == "client"]) == 6
+    assert len(payload["scenario"]["obstacles"]) == 2
+
+
+def test_ai_assist_coerces_string_version_and_compiles_scenario(monkeypatch) -> None:
     calls = {"count": 0}
 
     def fake_chat_json(self, *, model, system_prompt, user_prompt):  # noqa: ANN001
         calls["count"] += 1
-        if calls["count"] == 1:
-            return {
-                "kind": "meshflight_scenario_plan_v1",
-                "version": "1",
-                "request_mode": "generate",
-                "feasible": True,
-            }
         return {
             "kind": "meshflight_scenario_plan_v1",
-            "version": 1,
+            "version": "1",
             "request_mode": "generate",
             "feasible": True,
             "summary": "Second attempt supplies counts.",
@@ -295,11 +341,11 @@ def test_ai_assist_runs_plan_repair_and_compiles_scenario(monkeypatch) -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["doable"] is True
-    assert payload["ai_diagnostics"]["plan_repair_passes"] == 1
-    assert calls["count"] == 2
+    assert payload["ai_diagnostics"]["plan_repair_passes"] == 0
+    assert calls["count"] == 1
 
 
-def test_ai_assist_uses_multiple_repair_attempts_before_failing(monkeypatch) -> None:
+def test_ai_assist_ignores_unusable_count_values_and_still_builds(monkeypatch) -> None:
     calls = {"count": 0}
 
     def fake_chat_json(self, *, model, system_prompt, user_prompt):  # noqa: ANN001
@@ -315,7 +361,6 @@ def test_ai_assist_uses_multiple_repair_attempts_before_failing(monkeypatch) -> 
     monkeypatch.setenv("LLM_PROVIDER", "ollama")
     monkeypatch.setenv("OLLAMA_BASE_URL", "http://localhost:11434")
     monkeypatch.setenv("OLLAMA_MODEL", "qwen2.5-coder:3b")
-    monkeypatch.setenv("AI_ASSIST_ALLOW_SYNTHETIC_FALLBACK", "true")
     monkeypatch.setattr(OllamaClient, "chat_json", fake_chat_json)
 
     with TestClient(app) as client:
@@ -332,8 +377,8 @@ def test_ai_assist_uses_multiple_repair_attempts_before_failing(monkeypatch) -> 
     payload = response.json()
     assert payload["doable"] is True
     assert payload["scenario"]["metadata"]["schema_version"] == "0.1.0"
-    assert calls["count"] == 4
-    assert payload["ai_diagnostics"]["heuristic_prompt_fallback_used"] is True
+    assert calls["count"] == 1
+    assert payload["ai_diagnostics"]["heuristic_prompt_fallback_used"] is False
 
 
 def test_ai_assist_reports_provider_connectivity_issue(monkeypatch) -> None:

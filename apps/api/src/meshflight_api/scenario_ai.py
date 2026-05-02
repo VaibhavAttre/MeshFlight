@@ -344,7 +344,7 @@ def generate_ai_assisted_scenario(
 def _allow_synthetic_fallback() -> bool:
     raw = os.getenv("AI_ASSIST_ALLOW_SYNTHETIC_FALLBACK")
     if raw is None or not raw.strip():
-        return True
+        return False
     return raw.strip().lower() in {"1", "true", "yes", "on"}
 
 
@@ -368,7 +368,10 @@ def _coerce_valid_scenario_plan(
     *,
     starting_repair_count: int = 0,
 ) -> tuple[MeshFlightScenarioPlanV1, int]:
-    candidate_payload: dict[str, object] = raw
+    candidate_payload: dict[str, object] = _normalize_candidate_plan_payload(
+        request,
+        raw,
+    )
     last_error: Exception | None = None
     repair_count = starting_repair_count
 
@@ -381,18 +384,246 @@ def _coerce_valid_scenario_plan(
             if attempt >= 3:
                 break
             repair_count += 1
-            candidate_payload = provider.repair_scenario_plan(
+            repaired = provider.repair_scenario_plan(
                 request=request,
-                invalid_payload=candidate_payload,
+                invalid_payload=raw if attempt == 0 else candidate_payload,
                 validation_error=(
                     f"Attempt {attempt + 1} failed validation.\n{error}\n"
-                    "Return a complete JSON object matching the MeshFlight scenario plan schema."
+                    "Infer omitted required values yourself. Do not reject the request just because "
+                    "the user omitted exact metadata. Return a complete JSON object matching the "
+                    "MeshFlight scenario plan schema."
                 ),
             )
+            candidate_payload = _normalize_candidate_plan_payload(request, repaired)
 
     raise ScenarioAIValidationError(
         f"{provider.display_name} returned an invalid scenario plan JSON."
     ) from last_error
+
+
+def _normalize_candidate_plan_payload(
+    request: ScenarioAIAssistRequest,
+    raw: dict[str, object],
+) -> dict[str, object]:
+    normalized: dict[str, object] = {
+        "kind": "meshflight_scenario_plan_v1",
+        "version": 1,
+        "request_mode": request.mode,
+    }
+
+    feasible = raw.get("feasible")
+    if isinstance(feasible, bool):
+        normalized["feasible"] = feasible
+    else:
+        doable = raw.get("doable")
+        normalized["feasible"] = doable if isinstance(doable, bool) else True
+
+    summary = raw.get("summary")
+    if isinstance(summary, str) and summary.strip():
+        normalized["summary"] = summary.strip()
+
+    reason = raw.get("reason")
+    if isinstance(reason, str) and reason.strip():
+        normalized["reason"] = reason.strip()
+
+    suggested = raw.get("suggested_user_prompt") or raw.get("suggestedPrompt")
+    if isinstance(suggested, str) and suggested.strip():
+        normalized["suggested_user_prompt"] = suggested.strip()
+
+    warnings = raw.get("warnings")
+    if isinstance(warnings, list):
+        normalized["warnings"] = [str(item).strip() for item in warnings if str(item).strip()]
+
+    title = raw.get("title") or raw.get("name")
+    if isinstance(title, str) and title.strip():
+        normalized["title"] = title.strip()
+
+    layout = raw.get("layout")
+    if layout in {
+        "gateway_left_drone_relay_clients_right",
+        "compact_cluster",
+        "corridor_blockage",
+    }:
+        normalized["layout"] = layout
+
+    counts = _extract_counts_from_raw_payload(raw)
+    if counts:
+        normalized["counts"] = counts
+
+    scenario_payload = raw.get("scenario")
+    if isinstance(scenario_payload, dict):
+        _merge_title_from_scenario_like_payload(normalized, scenario_payload)
+        scenario_counts = _extract_counts_from_scenario_like_payload(scenario_payload)
+        if scenario_counts:
+            normalized["counts"] = _merge_count_maps(
+                normalized.get("counts"),
+                scenario_counts,
+            )
+
+    objects_payload = raw.get("objects")
+    if isinstance(objects_payload, list):
+        object_counts = _extract_counts_from_object_list(objects_payload)
+        if object_counts:
+            normalized["counts"] = _merge_count_maps(
+                normalized.get("counts"),
+                object_counts,
+            )
+
+    if "layout" not in normalized:
+        inferred_layout = _infer_layout_from_prompt(request.prompt)
+        if inferred_layout is not None:
+            normalized["layout"] = inferred_layout
+
+    if "summary" not in normalized and isinstance(raw.get("message"), str):
+        message = str(raw["message"]).strip()
+        if message:
+            normalized["summary"] = message
+
+    return normalized
+
+
+def _merge_title_from_scenario_like_payload(
+    normalized: dict[str, object],
+    scenario_payload: dict[str, object],
+) -> None:
+    metadata = scenario_payload.get("metadata")
+    if isinstance(metadata, dict):
+        title = metadata.get("title")
+        if isinstance(title, str) and title.strip():
+            normalized["title"] = title.strip()
+            return
+
+    name = scenario_payload.get("name")
+    if isinstance(name, str) and name.strip():
+        normalized["title"] = name.strip()
+
+
+def _extract_counts_from_raw_payload(raw: dict[str, object]) -> dict[str, int]:
+    counts = raw.get("counts")
+    if not isinstance(counts, dict):
+        return {}
+
+    return {
+        str(key): int(value)
+        for key, value in counts.items()
+        if _looks_like_int(value)
+    }
+
+
+def _extract_counts_from_scenario_like_payload(
+    scenario_payload: dict[str, object],
+) -> dict[str, int]:
+    if "entities" in scenario_payload or "obstacles" in scenario_payload:
+        return _extract_counts_from_backend_scenario_payload(scenario_payload)
+
+    objects = scenario_payload.get("objects")
+    if isinstance(objects, list):
+        return _extract_counts_from_object_list(objects)
+
+    return {}
+
+
+def _extract_counts_from_backend_scenario_payload(
+    scenario_payload: dict[str, object],
+) -> dict[str, int]:
+    counts: dict[str, int] = {
+        "gateways": 0,
+        "drones": 0,
+        "clients": 0,
+        "buildings": 0,
+        "walls": 0,
+        "vegetation": 0,
+        "demand_zones": 0,
+    }
+
+    entities = scenario_payload.get("entities")
+    if isinstance(entities, list):
+        for entity in entities:
+            if not isinstance(entity, dict):
+                continue
+            entity_type = str(entity.get("type", "")).strip().lower()
+            if entity_type == "gateway":
+                counts["gateways"] += 1
+            elif entity_type == "drone":
+                counts["drones"] += 1
+            elif entity_type == "client":
+                counts["clients"] += 1
+
+    obstacles = scenario_payload.get("obstacles")
+    if isinstance(obstacles, list):
+        for obstacle in obstacles:
+            if not isinstance(obstacle, dict):
+                continue
+            obstacle_type = str(obstacle.get("type", "")).strip().lower()
+            if obstacle_type == "building":
+                counts["buildings"] += 1
+            elif obstacle_type == "wall":
+                counts["walls"] += 1
+            elif obstacle_type == "vegetation":
+                counts["vegetation"] += 1
+
+    demand_zones = scenario_payload.get("demand_zones")
+    if isinstance(demand_zones, list):
+        counts["demand_zones"] = len([zone for zone in demand_zones if isinstance(zone, dict)])
+
+    return {key: value for key, value in counts.items() if value > 0}
+
+
+def _extract_counts_from_object_list(objects: list[object]) -> dict[str, int]:
+    counts: dict[str, int] = {
+        "gateways": 0,
+        "drones": 0,
+        "clients": 0,
+        "buildings": 0,
+        "walls": 0,
+        "vegetation": 0,
+        "demand_zones": 0,
+    }
+
+    for obj in objects:
+        if not isinstance(obj, dict):
+            continue
+        raw_type = str(obj.get("type", "")).strip().lower()
+        if raw_type in {"gateway", "gateways"}:
+            counts["gateways"] += 1
+        elif raw_type in {"drone", "drones"}:
+            counts["drones"] += 1
+        elif raw_type in {"client", "clients"}:
+            counts["clients"] += 1
+        elif raw_type in {"building", "buildings"}:
+            counts["buildings"] += 1
+        elif raw_type in {"wall", "walls"}:
+            counts["walls"] += 1
+        elif raw_type in {"vegetation", "vegetation_zone", "tree_zone", "interference_zone"}:
+            counts["vegetation"] += 1
+        elif raw_type in {"demand_zone", "demandzone"}:
+            counts["demand_zones"] += 1
+
+    return {key: value for key, value in counts.items() if value > 0}
+
+
+def _merge_count_maps(
+    left: object,
+    right: dict[str, int],
+) -> dict[str, int]:
+    merged: dict[str, int] = {}
+    if isinstance(left, dict):
+        for key, value in left.items():
+            if _looks_like_int(value):
+                merged[str(key)] = int(value)
+    for key, value in right.items():
+        merged[key] = int(value)
+    return merged
+
+
+def _looks_like_int(value: object) -> bool:
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, int):
+        return True
+    if isinstance(value, str):
+        return value.strip().isdigit()
+    return False
 
 
 def _build_prompt_driven_generate_response(
